@@ -87,10 +87,14 @@ export function TicketList({ tickets, departments, totalCount, totalPages, curre
                   </TableRow>
                 ) : (
                   tickets.map((ticket) => (
-                    <TableRow key={ticket.id} className="hover:bg-muted/50 transition-colors">
-                      <TableCell className="font-mono text-sm">{ticket.ticket_number}</TableCell>
+                    <TableRow key={ticket.id} className="cursor-pointer hover:bg-muted/50 transition-colors">
+                      <TableCell className="font-mono text-sm">
+                        <Link href={`/tickets/${ticket.id}`} className="block w-full">
+                          {ticket.ticket_number}
+                        </Link>
+                      </TableCell>
                       <TableCell>
-                        <Link href={`/tickets/${ticket.id}`} className="hover:underline">
+                        <Link href={`/tickets/${ticket.id}`} className="block w-full hover:underline">
                           <div>
                             <div className="font-medium">{ticket.title || "Untitled"}</div>
                             {ticket.description && (
@@ -101,36 +105,48 @@ export function TicketList({ tickets, departments, totalCount, totalPages, curre
                           </div>
                         </Link>
                       </TableCell>
-                      <TableCell>{ticket.department}</TableCell>
                       <TableCell>
-                        <Badge className={priorityColors[ticket.priority as keyof typeof priorityColors]}>
-                          {ticket.priority}
-                        </Badge>
+                        <Link href={`/tickets/${ticket.id}`} className="block w-full">
+                          {ticket.department}
+                        </Link>
                       </TableCell>
                       <TableCell>
-                        <Badge className={statusColors[ticket.status as keyof typeof statusColors]}>
-                          {ticket.status.replace("_", " ")}
-                        </Badge>
+                        <Link href={`/tickets/${ticket.id}`} className="block w-full">
+                          <Badge className={priorityColors[ticket.priority as keyof typeof priorityColors]}>
+                            {ticket.priority}
+                          </Badge>
+                        </Link>
                       </TableCell>
                       <TableCell>
-                        {ticket.assigned_profile ? (
-                          <div className="flex items-center gap-2">
-                            <User className="h-4 w-4" />
-                            <span className="text-sm">{ticket.assigned_profile.full_name}</span>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">Unassigned</span>
-                        )}
+                        <Link href={`/tickets/${ticket.id}`} className="block w-full">
+                          <Badge className={statusColors[ticket.status as keyof typeof statusColors]}>
+                            {ticket.status.replace("_", " ")}
+                          </Badge>
+                        </Link>
                       </TableCell>
                       <TableCell>
-                        {ticket.due_date ? (
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4" />
-                            <span className="text-sm">{format(new Date(ticket.due_date), "MMM dd, yyyy")}</span>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">No due date</span>
-                        )}
+                        <Link href={`/tickets/${ticket.id}`} className="block w-full">
+                          {ticket.assigned_profile ? (
+                            <div className="flex items-center gap-2">
+                              <User className="h-4 w-4" />
+                              <span className="text-sm">{ticket.assigned_profile.full_name}</span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">Unassigned</span>
+                          )}
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        <Link href={`/tickets/${ticket.id}`} className="block w-full">
+                          {ticket.due_date ? (
+                            <div className="flex items-center gap-2">
+                              <Calendar className="h-4 w-4" />
+                              <span className="text-sm">{format(new Date(ticket.due_date), "MMM dd, yyyy")}</span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">No due date</span>
+                          )}
+                        </Link>
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
