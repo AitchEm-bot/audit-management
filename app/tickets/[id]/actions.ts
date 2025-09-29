@@ -53,6 +53,31 @@ export async function addComment(ticketId: string, formData: FormData) {
 
   console.log('Comment added successfully:', activity.id)
 
+  // Automatically change status from 'open' to 'in_progress' when user comments
+  try {
+    const { data: currentTicket } = await supabase
+      .from('audit_tickets')
+      .select('status')
+      .eq('id', ticketId)
+      .single()
+
+    if (currentTicket?.status === 'open') {
+      const { error: statusError } = await supabase
+        .from('audit_tickets')
+        .update({ status: 'in_progress' })
+        .eq('id', ticketId)
+
+      if (statusError) {
+        console.error('Error auto-updating status:', statusError)
+      } else {
+        console.log('Status automatically changed from open to in_progress')
+      }
+    }
+  } catch (statusError) {
+    console.error('Error checking/updating ticket status:', statusError)
+    // Continue even if status update fails - comment was still added successfully
+  }
+
   // Revalidate the page to show the new comment
   revalidatePath(`/tickets/${ticketId}`)
 
