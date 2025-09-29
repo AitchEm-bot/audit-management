@@ -35,9 +35,11 @@ export class SupabaseQueries {
     pagination: PaginationParams = {},
     sort: SortOptions = { column: "created_at", ascending: false }
   ) {
+    console.log("getTicketsPaginated called with:", { filters, pagination, sort })
     const { page = 1, pageSize = 50 } = pagination
     const from = (page - 1) * pageSize
     const to = from + pageSize - 1
+    console.log("getTicketsPaginated: Pagination calculated:", { page, pageSize, from, to })
 
     // Start with basic query without joins to avoid relationship errors
     let query = this.supabase
@@ -61,7 +63,10 @@ export class SupabaseQueries {
       )
 
     // Apply filters
-    if (filters.status) {
+    if (filters.status === "active") {
+      // Special filter to exclude closed and resolved tickets
+      query = query.not("status", "in", "(closed,resolved)")
+    } else if (filters.status) {
       const statuses = Array.isArray(filters.status) ? filters.status : [filters.status]
       query = query.in("status", statuses)
     }
@@ -101,7 +106,13 @@ export class SupabaseQueries {
     // Apply pagination
     query = query.range(from, to)
 
+    console.log("getTicketsPaginated: About to execute query...")
     const { data, error, count } = await query
+    console.log("getTicketsPaginated: Query result:", {
+      dataLength: data?.length,
+      error,
+      count
+    })
 
     // If we got data, try to enrich it with profile information
     let enrichedData = data
@@ -294,45 +305,66 @@ export class SupabaseQueries {
    * Simplified query for report generation (basic functionality)
    */
   async getTicketsForReport(filters: TicketFilters = {}) {
-    // Use basic query first to avoid relationship errors
-    let query = this.supabase.from("audit_tickets").select("*")
+    console.log("getTicketsForReport: Starting with filters:", filters)
 
-    // Apply filters
-    if (filters.status) {
-      const statuses = Array.isArray(filters.status) ? filters.status : [filters.status]
-      query = query.in("status", statuses)
+    try {
+      // Use basic query first to avoid relationship errors
+      let query = this.supabase.from("audit_tickets").select("*")
+
+      // Apply filters
+      if (filters.status) {
+        const statuses = Array.isArray(filters.status) ? filters.status : [filters.status]
+        query = query.in("status", statuses)
+      }
+
+      if (filters.priority) {
+        const priorities = Array.isArray(filters.priority) ? filters.priority : [filters.priority]
+        query = query.in("priority", priorities)
+      }
+
+      if (filters.department) {
+        const departments = Array.isArray(filters.department) ? filters.department : [filters.department]
+        query = query.in("department", departments)
+      }
+
+      if (filters.dateRange) {
+        query = query
+          .gte("created_at", filters.dateRange.start)
+          .lte("created_at", filters.dateRange.end + "T23:59:59")
+      }
+
+      // Order by created_at for consistent results
+      query = query.order("created_at", { ascending: false })
+
+      console.log("getTicketsForReport: Executing main query...")
+
+      // Add timeout protection to prevent hanging
+      const queryPromise = query
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Ticket query timeout after 20 seconds")), 20000)
+      )
+
+      const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any
+
+      if (error) {
+        console.error("getTicketsForReport: Query error:", error)
+        return { data: [], error }
+      }
+
+      console.log("getTicketsForReport: Main query completed, tickets found:", data?.length || 0)
+
+      // Enrich with additional data if needed
+      const enrichedData = data ? await this.enrichTicketsForReport(data, filters) : []
+
+      console.log("getTicketsForReport: Enrichment completed, final count:", enrichedData?.length || 0)
+      return { data: enrichedData, error: null }
+    } catch (error) {
+      console.error("getTicketsForReport: Unexpected error:", error)
+      return {
+        data: [],
+        error: error instanceof Error ? error : new Error("Unknown error in report data fetch")
+      }
     }
-
-    if (filters.priority) {
-      const priorities = Array.isArray(filters.priority) ? filters.priority : [filters.priority]
-      query = query.in("priority", priorities)
-    }
-
-    if (filters.department) {
-      const departments = Array.isArray(filters.department) ? filters.department : [filters.department]
-      query = query.in("department", departments)
-    }
-
-    if (filters.dateRange) {
-      query = query
-        .gte("created_at", filters.dateRange.start)
-        .lte("created_at", filters.dateRange.end + "T23:59:59")
-    }
-
-    // Order by created_at for consistent results
-    query = query.order("created_at", { ascending: false })
-
-    const { data, error } = await query
-
-    if (error) {
-      console.error("Error fetching tickets for report:", error)
-      return { data: [], error }
-    }
-
-    // Enrich with additional data if needed
-    const enrichedData = data ? await this.enrichTicketsForReport(data, filters) : []
-
-    return { data: enrichedData, error: null }
   }
 
   /**
@@ -341,6 +373,8 @@ export class SupabaseQueries {
   private async enrichTicketsForReport(tickets: any[], filters: TicketFilters) {
     if (!tickets || tickets.length === 0) return tickets
 
+    console.log("enrichTicketsForReport: Starting enrichment for", tickets.length, "tickets")
+
     try {
       const ticketIds = tickets.map(t => t.id)
       const userIds = [...new Set([
@@ -348,8 +382,10 @@ export class SupabaseQueries {
         ...tickets.map(t => t.assigned_to).filter(Boolean)
       ])]
 
-      // Fetch profiles and comments separately to avoid join issues
-      const [profilesResult, commentsResult] = await Promise.all([
+      console.log("enrichTicketsForReport: Fetching", userIds.length, "profiles and comments for", ticketIds.length, "tickets")
+
+      // Add timeout protection to enrichment queries
+      const enrichmentPromise = Promise.all([
         userIds.length > 0 ? this.supabase
           .from("profiles")
           .select("id, full_name, email, department")
@@ -359,6 +395,18 @@ export class SupabaseQueries {
           .select("*")
           .in("ticket_id", ticketIds)
       ])
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Enrichment query timeout after 15 seconds")), 15000)
+      )
+
+      // Fetch profiles and comments separately to avoid join issues
+      const [profilesResult, commentsResult] = await Promise.race([
+        enrichmentPromise,
+        timeoutPromise
+      ]) as any
+
+      console.log("enrichTicketsForReport: Enrichment queries completed")
 
       const profileMap = new Map(profilesResult.data?.map(p => [p.id, p]) || [])
       const commentsByTicket = new Map()
@@ -373,6 +421,8 @@ export class SupabaseQueries {
         })
       })
 
+      console.log("enrichTicketsForReport: Processing completed, comments found:", commentsResult.data?.length || 0)
+
       // Enrich tickets with related data
       return tickets.map(ticket => ({
         ...ticket,
@@ -381,7 +431,8 @@ export class SupabaseQueries {
         audit_comments: commentsByTicket.get(ticket.id) || []
       }))
     } catch (error) {
-      console.warn("Failed to enrich tickets for report:", error)
+      console.warn("enrichTicketsForReport: Failed to enrich tickets, returning basic data:", error)
+      // Return tickets without enrichment if enrichment fails
       return tickets
     }
   }

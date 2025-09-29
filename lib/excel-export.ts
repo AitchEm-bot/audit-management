@@ -74,19 +74,29 @@ export class ExcelReportGenerator {
     }
 
     // Main tickets worksheet
-    const ticketData = filteredTickets.map((ticket) => ({
-      "Ticket Number": ticket.ticket_number,
-      Title: ticket.title,
-      Description: ticket.description,
-      Department: ticket.department,
-      Priority: ticket.priority,
-      Status: ticket.status,
-      "Created By": ticket.profiles?.full_name || "Unknown",
-      "Assigned To": ticket.assigned_profile?.full_name || "Unassigned",
-      "Due Date": ticket.due_date ? new Date(ticket.due_date).toLocaleDateString() : "No due date",
-      "Created Date": new Date(ticket.created_at).toLocaleDateString(),
-      "Last Updated": new Date(ticket.updated_at).toLocaleDateString(),
-    }))
+    const ticketData = filteredTickets.map((ticket) => {
+      // Concatenate comments for this ticket
+      const auditReplies = ticket.audit_comments && ticket.audit_comments.length > 0
+        ? ticket.audit_comments
+            .map(comment => `${comment.profiles?.full_name || 'Unknown'}: ${comment.content || ''}`)
+            .join('\n---\n')
+        : 'No comments'
+
+      return {
+        "Ticket Number": ticket.ticket_number,
+        Title: ticket.title,
+        Description: ticket.description,
+        Department: ticket.department,
+        Priority: ticket.priority,
+        Status: ticket.status,
+        "Created By": ticket.profiles?.full_name || "Unknown",
+        "Assigned To": ticket.assigned_profile?.full_name || "Unassigned",
+        "Due Date": ticket.due_date ? new Date(ticket.due_date).toLocaleDateString() : "No due date",
+        "Created Date": new Date(ticket.created_at).toLocaleDateString(),
+        "Last Updated": new Date(ticket.updated_at).toLocaleDateString(),
+        "Audit Reply": auditReplies,
+      }
+    })
 
     const ticketWorksheet = XLSX.utils.json_to_sheet(ticketData)
 
@@ -103,6 +113,7 @@ export class ExcelReportGenerator {
       { wch: 12 }, // Due Date
       { wch: 12 }, // Created Date
       { wch: 12 }, // Last Updated
+      { wch: 60 }, // Audit Reply
     ]
     ticketWorksheet["!cols"] = ticketColWidths
 
@@ -111,11 +122,11 @@ export class ExcelReportGenerator {
     // Comments worksheet (if requested)
     if (options.includeComments && comments.length > 0) {
       const commentData = comments.map((comment) => ({
-        "Ticket ID": comment.id,
-        Comment: comment.comment,
-        Author: comment.profiles.full_name,
-        Date: new Date(comment.created_at).toLocaleDateString(),
-        Time: new Date(comment.created_at).toLocaleTimeString(),
+        "Ticket Number": comment.ticket_number || "",
+        Comment: comment.content || "",
+        Author: comment.profiles?.full_name || "Unknown",
+        Date: comment.created_at ? new Date(comment.created_at).toLocaleDateString() : "",
+        Time: comment.created_at ? new Date(comment.created_at).toLocaleTimeString() : "",
       }))
 
       const commentWorksheet = XLSX.utils.json_to_sheet(commentData)
@@ -179,6 +190,11 @@ export class ExcelReportGenerator {
     link.download = filename
     link.click()
     window.URL.revokeObjectURL(url)
+  }
+
+  static workbookToBuffer(workbook: XLSX.WorkBook): Buffer {
+    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" })
+    return Buffer.from(excelBuffer)
   }
 
   private static calculateStatusCounts(tickets: TicketData[]) {

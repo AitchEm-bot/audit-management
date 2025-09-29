@@ -35,10 +35,15 @@ export function ReportGenerator() {
   const [departments, setDepartments] = useState<string[]>([])
   const [ticketCount, setTicketCount] = useState(0)
 
-  // Memoize queries instance
+  // Memoize queries instance with error handling
   const queries = useMemo(() => {
-    const supabase = createClient()
-    return createSupabaseQueries(supabase)
+    try {
+      const supabase = createClient()
+      return createSupabaseQueries(supabase)
+    } catch (error) {
+      console.error("Failed to create Supabase client for reports:", error)
+      return null
+    }
   }, [])
 
   const [filters, setFilters] = useState<ReportFilters>({
@@ -59,21 +64,61 @@ export function ReportGenerator() {
 
   const fetchInitialData = async () => {
     try {
-      // Fetch departments and stats in parallel
-      const [departmentsResult, statsResult] = await Promise.all([
-        queries.getDepartments(),
-        queries.getDashboardStats()
-      ])
+      console.log("ReportGenerator: Starting initial data fetch...")
 
-      if (departmentsResult.data) {
-        setDepartments(departmentsResult.data)
+      // Try client-side queries with timeout, but don't fail if they don't work
+      let departmentsData: string[] = []
+      let totalTicketCount = 0
+
+      if (queries) {
+        try {
+          console.log("ReportGenerator: Attempting client-side queries...")
+
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Client-side query timeout")), 5000)
+          )
+
+          const [departmentsResult, statsResult] = await Promise.race([
+            Promise.all([
+              queries.getDepartments(),
+              queries.getDashboardStats()
+            ]),
+            timeoutPromise
+          ]) as any
+
+          console.log("ReportGenerator: Client-side queries succeeded")
+
+          if (departmentsResult.data) {
+            departmentsData = departmentsResult.data
+            console.log("ReportGenerator: Departments loaded:", departmentsData.length)
+          }
+
+          if (statsResult.data) {
+            totalTicketCount = statsResult.data.total || 0
+            console.log("ReportGenerator: Ticket count:", totalTicketCount)
+          }
+        } catch (clientError) {
+          console.warn("ReportGenerator: Client-side queries failed, using defaults:", clientError)
+          // Don't throw error, just use defaults
+        }
+      } else {
+        console.warn("ReportGenerator: Supabase client not available, using defaults")
       }
 
-      if (statsResult.data) {
-        setTicketCount(statsResult.data.total || 0)
-      }
+      // Set the data (either from queries or defaults)
+      setDepartments(departmentsData)
+      setTicketCount(totalTicketCount)
+
+      console.log("ReportGenerator: Initial data fetch completed successfully")
     } catch (error) {
-      console.error("Error fetching initial data:", error)
+      console.error("ReportGenerator: Error in initial data fetch:", error)
+
+      // Set reasonable defaults so the UI still works
+      setDepartments([])
+      setTicketCount(0)
+
+      // Don't show error for initial data fetch failures since report generation will work server-side
+      console.log("ReportGenerator: Using default values due to initial data fetch failure")
     }
   }
 
@@ -83,51 +128,111 @@ export function ReportGenerator() {
     setSuccess(null)
 
     try {
-      // Use optimized query that fetches tickets with all related data in a single query
-      const ticketFilters = {
-        status: filters.status.length > 0 ? filters.status : undefined,
-        priority: filters.priority.length > 0 ? filters.priority : undefined,
-        department: filters.department.length > 0 ? filters.department : undefined,
-        dateRange: filters.dateRange || undefined,
+      console.log("generateReport: Starting server-side report generation...")
+
+      // Prepare request payload - only include filters that have values
+      const requestFilters: any = {}
+
+      if (filters.status.length > 0) {
+        requestFilters.status = filters.status
       }
 
-      const { data: tickets, error: ticketError } = await queries.getTicketsForReport(ticketFilters)
-
-      if (ticketError) throw ticketError
-
-      // Extract comments from the nested data if needed
-      let comments: any[] = []
-      if (options.includeComments && tickets && tickets.length > 0) {
-        // Comments are already included in the tickets data from the optimized query
-        comments = tickets.flatMap(ticket =>
-          (ticket.audit_comments || []).map((comment: any) => ({
-            ...comment,
-            ticket_id: ticket.id,
-            ticket_number: ticket.ticket_number
-          }))
-        )
+      if (filters.priority.length > 0) {
+        requestFilters.priority = filters.priority
       }
 
-      // Generate Excel report
-      const workbook = ExcelReportGenerator.generateTicketReport(tickets || [], comments, {
-        includeComments: options.includeComments,
-        includeMetrics: options.includeMetrics,
-        filterStatus: filters.status.length > 0 ? filters.status : undefined,
-        filterPriority: filters.priority.length > 0 ? filters.priority : undefined,
-        filterDepartment: filters.department.length > 0 ? filters.department : undefined,
-        dateRange: filters.dateRange || undefined,
+      if (filters.department.length > 0) {
+        requestFilters.department = filters.department
+      }
+
+      if (filters.dateRange) {
+        requestFilters.dateRange = filters.dateRange
+      }
+
+      const requestPayload = {
+        filters: requestFilters,
+        options: {
+          includeComments: options.includeComments,
+          includeMetrics: options.includeMetrics,
+        }
+      }
+
+      console.log("generateReport: Request payload:", requestPayload)
+
+      // Make server-side request
+      const response = await fetch('/api/reports', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestPayload),
       })
 
-      // Generate filename
-      const timestamp = format(new Date(), "yyyy-MM-dd_HH-mm")
-      const filename = `audit-report_${timestamp}.xlsx`
+      console.log("generateReport: Server response status:", response.status)
 
-      // Download the file
-      ExcelReportGenerator.downloadExcelFile(workbook, filename)
+      if (!response.ok) {
+        // Try to get error message from response
+        let errorMessage = 'Failed to generate report'
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorMessage
+        } catch (e) {
+          console.warn("Failed to parse error response:", e)
+        }
+        throw new Error(errorMessage)
+      }
 
-      setSuccess(`Report generated successfully! Downloaded ${tickets?.length || 0} tickets.`)
+      // Get the filename from the response headers
+      const contentDisposition = response.headers.get('content-disposition')
+      let filename = `audit-report_${format(new Date(), "yyyy-MM-dd_HH-mm")}.xlsx`
+
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/)
+        if (filenameMatch) {
+          filename = filenameMatch[1].replace(/['"]/g, '')
+        }
+      }
+
+      console.log("generateReport: Downloading file:", filename)
+
+      // Get the blob data and trigger download
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      console.log("generateReport: Download completed successfully")
+
+      // Show success message
+      const successMessage = `Report generated successfully! Downloaded ${filename}.`
+      setSuccess(successMessage)
+
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred generating the report")
+      console.error("generateReport: Error occurred:", err)
+
+      // Provide user-friendly error messages based on error type
+      let errorMessage = "An unexpected error occurred while generating the report."
+
+      if (err instanceof Error) {
+        if (err.message.includes("timeout") || err.message.includes("timed out")) {
+          errorMessage = "The report generation timed out. This usually happens with large datasets. Please try using more specific filters (date range, department, status) to reduce the data size."
+        } else if (err.message.includes("network") || err.message.includes("fetch")) {
+          errorMessage = "Network connection issue. Please check your internet connection and try again."
+        } else if (err.message.includes("permission") || err.message.includes("unauthorized") || err.message.includes("Unauthorized")) {
+          errorMessage = "You don't have permission to access this data. Please contact your administrator."
+        } else if (err.message.includes("No tickets found")) {
+          errorMessage = err.message // Use the specific "no tickets found" message
+        } else {
+          errorMessage = `Report generation failed: ${err.message}`
+        }
+      }
+
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }

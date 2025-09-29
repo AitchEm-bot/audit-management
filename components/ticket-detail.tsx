@@ -140,23 +140,44 @@ export function TicketDetail({ ticketId }: TicketDetailProps) {
     const supabase = createClient()
 
     try {
-      const { data, error } = await supabase
+      // First, fetch activities without profiles
+      const { data: activitiesData, error: activitiesError } = await supabase
         .from("ticket_activities")
         .select(`
           *,
-          profiles:user_id (full_name, email),
           ticket_comment_attachments (*)
         `)
         .eq("ticket_id", ticketId)
         .order("created_at", { ascending: true })
 
-      if (error) {
-        console.error("Activities table query error:", error)
-        // Create a fallback "ticket created" activity using ticket data
+      if (activitiesError) {
+        console.error("Activities table query error:", activitiesError)
         createFallbackActivities()
-      } else {
-        setActivities(data || [])
+        return
       }
+
+      // Then, fetch user profiles separately
+      const userIds = [...new Set(activitiesData?.map(a => a.user_id).filter(Boolean) || [])]
+      let profileMap = new Map()
+
+      if (userIds.length > 0) {
+        const { data: profiles, error: profileError } = await supabase
+          .from("profiles")
+          .select("id, full_name, email")
+          .in("id", userIds)
+
+        if (!profileError && profiles) {
+          profileMap = new Map(profiles.map(p => [p.id, p]))
+        }
+      }
+
+      // Enrich activities with profile data
+      const enrichedActivities = activitiesData?.map(activity => ({
+        ...activity,
+        profiles: profileMap.get(activity.user_id) || null
+      })) || []
+
+      setActivities(enrichedActivities)
     } catch (error) {
       console.error("Error fetching activities:", error)
       createFallbackActivities()
@@ -206,7 +227,10 @@ export function TicketDetail({ ticketId }: TicketDetailProps) {
             activity_type: "comment",
             content: newComment.trim(),
           })
-          .select()
+          .select(`
+            *,
+            profiles:user_id (full_name, email)
+          `)
           .single()
 
         if (!error && activity) {
@@ -237,6 +261,13 @@ export function TicketDetail({ ticketId }: TicketDetailProps) {
       } catch (activityError) {
         console.error("Activities table not available:", activityError)
 
+        // Try to fetch the user's profile for the fallback
+        const { data: userProfile } = await supabase
+          .from("profiles")
+          .select("full_name, email")
+          .eq("id", user.id)
+          .single()
+
         // Fallback: Add comment as a synthetic activity to the current state
         const newActivity: TicketActivity = {
           id: `fallback-comment-${Date.now()}`,
@@ -247,7 +278,10 @@ export function TicketDetail({ ticketId }: TicketDetailProps) {
           metadata: null,
           created_at: new Date().toISOString(),
           user_id: user.id,
-          profiles: { full_name: 'You', email: user.email || '' },
+          profiles: {
+            full_name: userProfile?.full_name || user.email?.split('@')[0] || 'Unknown',
+            email: user.email || ''
+          },
           attachments: []
         }
 
@@ -291,6 +325,15 @@ export function TicketDetail({ ticketId }: TicketDetailProps) {
         console.error("Could not log status change activity:", activityError)
         // Add synthetic activity to current state
         if (oldStatus && ticket) {
+          const { data: { user } } = await supabase.auth.getUser()
+
+          // Try to fetch the user's profile for the fallback
+          const { data: userProfile } = await supabase
+            .from("profiles")
+            .select("full_name, email")
+            .eq("id", user?.id || ticket.created_by)
+            .single()
+
           const statusActivity: TicketActivity = {
             id: `fallback-status-${Date.now()}`,
             activity_type: 'status_change',
@@ -299,8 +342,11 @@ export function TicketDetail({ ticketId }: TicketDetailProps) {
             new_value: newStatus,
             metadata: null,
             created_at: new Date().toISOString(),
-            user_id: ticket.created_by,
-            profiles: { full_name: 'You', email: '' },
+            user_id: user?.id || ticket.created_by,
+            profiles: {
+              full_name: userProfile?.full_name || user?.email?.split('@')[0] || 'Unknown',
+              email: user?.email || ''
+            },
             attachments: []
           }
           setActivities(prev => [...prev, statusActivity])

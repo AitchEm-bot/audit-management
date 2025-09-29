@@ -243,22 +243,12 @@ export function TicketDetailClient({ ticket }: TicketDetailClientProps) {
               )}
 
               <div>
-                <label className="text-sm font-medium text-muted-foreground">Created By</label>
+                <label className="text-sm font-medium text-muted-foreground">Assigned To</label>
                 <div className="flex items-center gap-2 text-sm">
                   <User className="h-4 w-4" />
-                  {ticket.profiles?.full_name || "Unknown User"}
+                  {ticket.assigned_profile?.full_name || "Unassigned"}
                 </div>
               </div>
-
-              {ticket.assigned_profile && (
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Assigned To</label>
-                  <div className="flex items-center gap-2 text-sm">
-                    <User className="h-4 w-4" />
-                    {ticket.assigned_profile.full_name}
-                  </div>
-                </div>
-              )}
             </CardContent>
           </Card>
         </div>
