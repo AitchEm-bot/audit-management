@@ -7,7 +7,9 @@
       "Bash(NEXT_PUBLIC_SUPABASE_URL=https://tepugapnfaqmatgsahfy.supabase.co NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlcHVnYXBuZmFxbWF0Z3NhaGZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg5MzEzMDcsImV4cCI6MjA3NDUwNzMwN30.RR4vMyupRMDQTy_VOk_sn9pz1Q9Wx3n26ADQJbwU7qQ node simple_migrate.mjs)",
       "Bash(npm install:*)",
       "Bash(npm run lint)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(npm run dev:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []

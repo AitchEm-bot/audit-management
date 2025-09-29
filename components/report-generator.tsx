@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { createClient } from "@/lib/supabase/client"
+import { createSupabaseQueries } from "@/lib/supabase/queries"
 import { ExcelReportGenerator } from "@/lib/excel-export"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -34,6 +35,12 @@ export function ReportGenerator() {
   const [departments, setDepartments] = useState<string[]>([])
   const [ticketCount, setTicketCount] = useState(0)
 
+  // Memoize queries instance
+  const queries = useMemo(() => {
+    const supabase = createClient()
+    return createSupabaseQueries(supabase)
+  }, [])
+
   const [filters, setFilters] = useState<ReportFilters>({
     status: [],
     priority: [],
@@ -47,33 +54,26 @@ export function ReportGenerator() {
   })
 
   useEffect(() => {
-    fetchDepartments()
-    fetchTicketCount()
+    fetchInitialData()
   }, [])
 
-  const fetchDepartments = async () => {
-    const supabase = createClient()
+  const fetchInitialData = async () => {
     try {
-      const { data, error } = await supabase.from("audit_tickets").select("department")
+      // Fetch departments and stats in parallel
+      const [departmentsResult, statsResult] = await Promise.all([
+        queries.getDepartments(),
+        queries.getDashboardStats()
+      ])
 
-      if (error) throw error
+      if (departmentsResult.data) {
+        setDepartments(departmentsResult.data)
+      }
 
-      const uniqueDepartments = [...new Set(data?.map((ticket) => ticket.department) || [])]
-      setDepartments(uniqueDepartments)
+      if (statsResult.data) {
+        setTicketCount(statsResult.data.total || 0)
+      }
     } catch (error) {
-      console.error("Error fetching departments:", error)
-    }
-  }
-
-  const fetchTicketCount = async () => {
-    const supabase = createClient()
-    try {
-      const { count, error } = await supabase.from("audit_tickets").select("*", { count: "exact", head: true })
-
-      if (error) throw error
-      setTicketCount(count || 0)
-    } catch (error) {
-      console.error("Error fetching ticket count:", error)
+      console.error("Error fetching initial data:", error)
     }
   }
 
@@ -83,52 +83,29 @@ export function ReportGenerator() {
     setSuccess(null)
 
     try {
-      const supabase = createClient()
-
-      // Build query for tickets
-      let ticketQuery = supabase.from("audit_tickets").select(`
-        *,
-        profiles:created_by (full_name, email),
-        assigned_profile:assigned_to (full_name, email)
-      `)
-
-      // Apply filters
-      if (filters.status.length > 0) {
-        ticketQuery = ticketQuery.in("status", filters.status)
+      // Use optimized query that fetches tickets with all related data in a single query
+      const ticketFilters = {
+        status: filters.status.length > 0 ? filters.status : undefined,
+        priority: filters.priority.length > 0 ? filters.priority : undefined,
+        department: filters.department.length > 0 ? filters.department : undefined,
+        dateRange: filters.dateRange || undefined,
       }
 
-      if (filters.priority.length > 0) {
-        ticketQuery = ticketQuery.in("priority", filters.priority)
-      }
-
-      if (filters.department.length > 0) {
-        ticketQuery = ticketQuery.in("department", filters.department)
-      }
-
-      if (filters.dateRange) {
-        ticketQuery = ticketQuery
-          .gte("created_at", filters.dateRange.start)
-          .lte("created_at", filters.dateRange.end + "T23:59:59")
-      }
-
-      const { data: tickets, error: ticketError } = await ticketQuery.order("created_at", { ascending: false })
+      const { data: tickets, error: ticketError } = await queries.getTicketsForReport(ticketFilters)
 
       if (ticketError) throw ticketError
 
+      // Extract comments from the nested data if needed
       let comments: any[] = []
       if (options.includeComments && tickets && tickets.length > 0) {
-        const ticketIds = tickets.map((ticket) => ticket.id)
-        const { data: commentData, error: commentError } = await supabase
-          .from("audit_comments")
-          .select(`
-            *,
-            profiles:user_id (full_name, email)
-          `)
-          .in("ticket_id", ticketIds)
-          .order("created_at", { ascending: true })
-
-        if (commentError) throw commentError
-        comments = commentData || []
+        // Comments are already included in the tickets data from the optimized query
+        comments = tickets.flatMap(ticket =>
+          (ticket.audit_comments || []).map((comment: any) => ({
+            ...comment,
+            ticket_id: ticket.id,
+            ticket_number: ticket.ticket_number
+          }))
+        )
       }
 
       // Generate Excel report

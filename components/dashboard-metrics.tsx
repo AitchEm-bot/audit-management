@@ -1,11 +1,14 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { createClient } from "@/lib/supabase/client"
+import { createSupabaseQueries } from "@/lib/supabase/queries"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts"
-import { FileText, AlertTriangle, CheckCircle, Clock, TrendingUp, Users, Calendar } from "lucide-react"
+import { FileText, AlertTriangle, CheckCircle, Clock, TrendingUp, Users, Calendar, RefreshCw } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { format } from "date-fns"
 
 interface TicketStats {
   total: number
@@ -43,38 +46,13 @@ const STATUS_COLORS = {
 }
 
 interface DashboardMetricsProps {
-  initialTickets?: any[]
+  initialStats?: TicketStats
 }
 
-export function DashboardMetrics({ initialTickets = [] }: DashboardMetricsProps) {
-  const [stats, setStats] = useState<TicketStats>({
-    total: 0,
-    open: 0,
-    in_progress: 0,
-    resolved: 0,
-    closed: 0,
-    critical: 0,
-    high: 0,
-    medium: 0,
-    low: 0,
-    overdue: 0,
-    departments: {},
-    recentActivity: 0,
-  })
-  const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    // Always use initial tickets from server (even if empty array)
-    calculateStats(initialTickets)
-    // Don't fetch on client if we have server data (even empty)
-  }, [initialTickets])
-
-  const calculateStats = (tickets: any[]) => {
-    const now = new Date()
-    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-
-    const newStats: TicketStats = {
-      total: tickets?.length || 0,
+export function DashboardMetrics({ initialStats }: DashboardMetricsProps) {
+  const [stats, setStats] = useState<TicketStats>(
+    initialStats || {
+      total: 0,
       open: 0,
       in_progress: 0,
       resolved: 0,
@@ -87,54 +65,133 @@ export function DashboardMetrics({ initialTickets = [] }: DashboardMetricsProps)
       departments: {},
       recentActivity: 0,
     }
+  )
+  const [loading, setLoading] = useState(false)
+  const [lastRefresh, setLastRefresh] = useState(new Date())
 
-    tickets?.forEach((ticket) => {
-      // Status counts
-      if (ticket.status in newStats) {
-        (newStats as any)[ticket.status]++
-      }
+  // Memoize queries instance with error handling
+  const queries = useMemo(() => {
+    try {
+      const supabase = createClient()
+      return createSupabaseQueries(supabase)
+    } catch (error) {
+      console.error("Failed to create Supabase client for dashboard:", error)
+      return null
+    }
+  }, [])
 
-      // Priority counts
-      if (ticket.priority in newStats) {
-        (newStats as any)[ticket.priority]++
-      }
+  useEffect(() => {
+    // Use server-side stats if they look complete, otherwise fetch client-side
+    console.log("DashboardMetrics: Initial stats provided:", initialStats)
 
-      // Department counts
-      newStats.departments[ticket.department] = (newStats.departments[ticket.department] || 0) + 1
+    if (initialStats && initialStats.total > 0 &&
+        (initialStats.open + initialStats.in_progress + initialStats.resolved + initialStats.closed) > 0) {
+      // Server-side stats look complete, use them
+      console.log("Using complete server-side stats")
+      setStats({
+        ...initialStats,
+        recentActivity: initialStats.recent_7_days || 0
+      } as TicketStats)
+      setLastRefresh(new Date())
+    } else {
+      // Server-side stats incomplete, try client-side fetch
+      console.log("Server-side stats incomplete, fetching client-side")
+      fetchStats()
+    }
+  }, [])
 
-      // Overdue tickets
-      if (
-        ticket.due_date &&
-        new Date(ticket.due_date) < now &&
-        ticket.status !== "resolved" &&
-        ticket.status !== "closed"
-      ) {
-        newStats.overdue++
-      }
-
-      // Recent activity
-      if (new Date(ticket.created_at) > sevenDaysAgo) {
-        newStats.recentActivity++
-      }
-    })
-
-    setStats(newStats)
-    setLoading(false)
-  }
-
-  const fetchStats = async () => {
-    const supabase = createClient()
-    setLoading(true)
+  const fetchStats = async (showLoading = true) => {
+    if (showLoading) setLoading(true)
 
     try {
-      const { data: tickets, error } = await supabase.from("audit_tickets").select("*")
+      // Check if queries is available (Supabase client creation succeeded)
+      if (!queries) {
+        console.warn("Supabase client not available, using initial stats")
+        // Use initial stats or fallback to zeros, but don't stay in loading state
+        setStats(initialStats || {
+          total: 0,
+          open: 0,
+          in_progress: 0,
+          resolved: 0,
+          closed: 0,
+          critical: 0,
+          high: 0,
+          medium: 0,
+          low: 0,
+          overdue: 0,
+          departments: {},
+          recentActivity: 0,
+        })
+        return
+      }
 
-      if (error) throw error
+      // Use fallback-enabled dashboard stats
+      console.log("fetchStats: About to call getDashboardStats")
+      const { data, error } = await queries.getDashboardStats()
+      console.log("fetchStats: getDashboardStats returned:", { data, error })
 
-      calculateStats(tickets || [])
+      if (error) {
+        console.error("fetchStats: Error fetching stats:", error)
+        // Use initial stats as fallback if available, otherwise use zeros
+        console.warn("fetchStats: Using initial stats as fallback due to query error")
+        setStats(initialStats || {
+          total: 0,
+          open: 0,
+          in_progress: 0,
+          resolved: 0,
+          closed: 0,
+          critical: 0,
+          high: 0,
+          medium: 0,
+          low: 0,
+          overdue: 0,
+          departments: {},
+          recentActivity: 0,
+        })
+      } else if (data) {
+        setStats({
+          ...data,
+          recentActivity: data.recent_7_days || 0 // Map recent_7_days to recentActivity
+        } as TicketStats)
+        setLastRefresh(new Date())
+      }
     } catch (error) {
       console.error("Error fetching stats:", error)
+      // Ensure we don't stay in loading state
+      setStats({
+        total: 0,
+        open: 0,
+        in_progress: 0,
+        resolved: 0,
+        closed: 0,
+        critical: 0,
+        high: 0,
+        medium: 0,
+        low: 0,
+        overdue: 0,
+        departments: {},
+        recentActivity: 0,
+      })
     } finally {
+      setLoading(false)
+    }
+  }
+
+  const refreshStats = async () => {
+    // For now, use page reload as a reliable refresh method
+    // This ensures we get fresh server-side calculated stats
+    setLoading(true)
+    try {
+      console.log("Refreshing dashboard stats...")
+
+      // Instead of using the problematic client-side query,
+      // we'll reload the page to get fresh server-side stats
+      setTimeout(() => {
+        window.location.reload()
+      }, 500) // Small delay to show loading state
+
+    } catch (error) {
+      console.error("Error refreshing stats:", error)
       setLoading(false)
     }
   }
@@ -179,6 +236,22 @@ export function DashboardMetrics({ initialTickets = [] }: DashboardMetricsProps)
 
   return (
     <div className="space-y-6">
+      {/* Refresh Button and Last Updated */}
+      <div className="flex justify-between items-center">
+        <div className="text-sm text-muted-foreground">
+          Last updated: {format(lastRefresh, "PPp")}
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={refreshStats}
+          disabled={loading}
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+          Refresh Stats
+        </Button>
+      </div>
+
       {/* Key Metrics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>

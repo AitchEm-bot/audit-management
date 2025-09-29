@@ -1,14 +1,15 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
+import { createSupabaseQueries } from "@/lib/supabase/queries"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Eye, Edit, Calendar, User } from "lucide-react"
+import { Search, Eye, Edit, Calendar, User, ChevronLeft, ChevronRight } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
@@ -50,7 +51,12 @@ const statusColors = {
   closed: "bg-gray-100 text-gray-800",
 }
 
-export function TicketList({ initialTickets = [] }: { initialTickets?: Ticket[] }) {
+interface TicketListProps {
+  initialTickets?: Ticket[]
+  pageSize?: number
+}
+
+export function TicketList({ initialTickets = [], pageSize = 20 }: TicketListProps) {
   const router = useRouter()
   const [tickets, setTickets] = useState<Ticket[]>(initialTickets)
   const [loading, setLoading] = useState(false)
@@ -58,54 +64,87 @@ export function TicketList({ initialTickets = [] }: { initialTickets?: Ticket[] 
   const [statusFilter, setStatusFilter] = useState("all")
   const [priorityFilter, setPriorityFilter] = useState("all")
   const [departmentFilter, setDepartmentFilter] = useState("all")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+  const [departments, setDepartments] = useState<string[]>([])
+
+  // Memoize queries instance
+  const queries = useMemo(() => {
+    const supabase = createClient()
+    return createSupabaseQueries(supabase)
+  }, [])
 
   useEffect(() => {
-    // Always use initial tickets from server (even if empty array)
-    console.log("Using initial tickets from server:", initialTickets.length)
+    // Always start with initial tickets from server
     setTickets(initialTickets)
-    // Don't fetch on client if we have server data (even empty)
+    // Fetch departments for filter dropdown
+    fetchDepartments()
   }, [initialTickets])
 
-  const fetchTickets = async () => {
-    // Since we're using server-side data, this is only a fallback
-    console.log("Client-side fetchTickets called (fallback)")
-    setLoading(true)
+  useEffect(() => {
+    // Only fetch client-side if we don't have initial tickets
+    // This prevents infinite loading when server-side fetch works
+    if (initialTickets.length === 0) {
+      const debounceTimer = setTimeout(() => {
+        fetchTickets()
+      }, searchTerm ? 300 : 0) // Debounce search
 
+      return () => clearTimeout(debounceTimer)
+    }
+  }, [statusFilter, priorityFilter, departmentFilter, searchTerm, currentPage, initialTickets.length])
+
+  const fetchDepartments = async () => {
     try {
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from("audit_tickets")
-        .select("*")
-        .order("created_at", { ascending: false })
-
-      if (error) {
-        console.error("Client fetch error:", error)
-      } else {
-        console.log("Client fetched tickets:", data?.length || 0)
-        setTickets(data || [])
+      const { data } = await queries.getDepartments()
+      if (data) {
+        setDepartments(data)
       }
     } catch (error) {
-      console.error("Client fetch failed:", error)
-      setTickets([])
-    } finally {
-      setLoading(false)
+      console.error("Error fetching departments:", error)
+      setDepartments([]) // Set empty array to prevent undefined issues
     }
   }
 
-  const filteredTickets = tickets.filter((ticket) => {
-    const matchesSearch =
-      ticket.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ticket.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ticket.ticket_number?.toLowerCase().includes(searchTerm.toLowerCase())
+  const fetchTickets = useCallback(async () => {
+    setLoading(true)
 
-    const matchesStatus = statusFilter === "all" || ticket.status === statusFilter
-    const matchesPriority = priorityFilter === "all" || ticket.priority === priorityFilter
-    const matchesDepartment = departmentFilter === "all" || ticket.department === departmentFilter
+    try {
+      const filters = {
+        status: statusFilter !== "all" ? statusFilter : undefined,
+        priority: priorityFilter !== "all" ? priorityFilter : undefined,
+        department: departmentFilter !== "all" ? departmentFilter : undefined,
+        searchTerm: searchTerm || undefined,
+      }
 
-    return matchesSearch && matchesStatus && matchesPriority && matchesDepartment
-  })
+      const { data, count, pageInfo, error } = await queries.getTicketsPaginated(
+        filters,
+        { page: currentPage, pageSize },
+        { column: "created_at", ascending: false }
+      )
 
-  const departments = [...new Set(tickets.map((t) => t.department))]
+      if (error) {
+        console.error("Error fetching tickets:", error)
+        // Don't clear tickets on error, keep existing data
+      } else {
+        setTickets(data || [])
+        setTotalCount(count || 0)
+        setTotalPages(pageInfo?.totalPages || 1)
+      }
+    } catch (error) {
+      console.error("Failed to fetch tickets:", error)
+      // Don't clear tickets on error, show empty state gracefully
+      if (tickets.length === 0) {
+        setTickets([])
+      }
+    } finally {
+      setLoading(false)
+    }
+  }, [statusFilter, priorityFilter, departmentFilter, searchTerm, currentPage, pageSize, queries, tickets.length])
+
+  // Server-side filtering is now handled in fetchTickets
+  // No need for client-side filtering anymore
+  const filteredTickets = tickets
 
   const handleRowClick = (ticketId: string, event: React.MouseEvent) => {
     // Don't navigate if clicking on action buttons
@@ -278,6 +317,55 @@ export function TicketList({ initialTickets = [] }: { initialTickets?: Ticket[] 
               </TableBody>
             </Table>
           </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4">
+              <div className="text-sm text-muted-foreground">
+                Showing {Math.min((currentPage - 1) * pageSize + 1, totalCount)} to{" "}
+                {Math.min(currentPage * pageSize, totalCount)} of {totalCount} tickets
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1 || loading}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    const pageNum = currentPage <= 3 ? i + 1 : currentPage + i - 2
+                    if (pageNum > 0 && pageNum <= totalPages) {
+                      return (
+                        <Button
+                          key={pageNum}
+                          variant={pageNum === currentPage ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setCurrentPage(pageNum)}
+                          disabled={loading}
+                        >
+                          {pageNum}
+                        </Button>
+                      )
+                    }
+                    return null
+                  })}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages || loading}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

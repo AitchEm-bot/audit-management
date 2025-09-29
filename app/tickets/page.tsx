@@ -2,7 +2,16 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { TicketList } from "@/components/ticket-list"
 
-export default async function TicketsPage() {
+interface PageProps {
+  searchParams?: {
+    page?: string
+    status?: string
+    priority?: string
+    department?: string
+  }
+}
+
+export default async function TicketsPage({ searchParams }: PageProps) {
   const supabase = await createClient()
   const {
     data: { user },
@@ -12,19 +21,22 @@ export default async function TicketsPage() {
     redirect("/auth/login")
   }
 
-  // Fetch tickets server-side
+  // Use simplified query for server-side rendering to avoid relationship errors
   let tickets = []
+
   try {
+    // Simple query without joins to ensure it works
     const { data, error } = await supabase
       .from("audit_tickets")
       .select("*")
       .order("created_at", { ascending: false })
+      .limit(20) // Start with basic pagination
 
     if (error) {
       console.error("Error fetching tickets server-side:", error)
     } else {
       tickets = data || []
-      console.log("Fetched tickets server-side:", tickets.length)
+      console.log(`Fetched ${tickets.length} tickets server-side`)
     }
   } catch (error) {
     console.error("Server error fetching tickets:", error)
@@ -38,7 +50,7 @@ export default async function TicketsPage() {
           <p className="text-muted-foreground mt-2">View and manage all audit findings and remediation tasks</p>
         </div>
 
-        <TicketList initialTickets={tickets} />
+        <TicketList initialTickets={tickets} pageSize={20} />
       </div>
     </div>
   )
