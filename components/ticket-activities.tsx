@@ -42,10 +42,25 @@ async function fetchActivities(ticketId: string): Promise<TicketActivity[]> {
 
     console.log("✅ Server-side successfully fetched activities:", activities?.length || 0)
 
-    // Add fallback profile data since we're not joining
+    // Fetch user profiles for all activities
+    const userIds = [...new Set((activities || []).map(a => a.user_id).filter(Boolean))]
+    let profileMap = new Map()
+
+    if (userIds.length > 0) {
+      const { data: profiles, error: profileError } = await supabase
+        .from("profiles")
+        .select("id, full_name, email")
+        .in("id", userIds)
+
+      if (!profileError && profiles) {
+        profileMap = new Map(profiles.map(p => [p.id, p]))
+      }
+    }
+
+    // Enrich activities with profile data
     const activitiesWithProfiles = (activities || []).map(activity => ({
       ...activity,
-      profiles: { full_name: "User", email: "" }
+      profiles: profileMap.get(activity.user_id) || { full_name: "Unknown User", email: "" }
     }))
 
     return activitiesWithProfiles
