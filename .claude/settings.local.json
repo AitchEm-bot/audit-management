@@ -9,7 +9,11 @@
       "Bash(npm run lint)",
       "Bash(npx tsc:*)",
       "Bash(npm run dev:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(python3:*)",
+      "Bash(pip3 install:*)",
+      "Bash(source:*)",
+      "Bash(uv pip install:*)"
     ],
     "deny": [],
     "ask": []

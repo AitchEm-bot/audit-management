@@ -1,0 +1,134 @@
+{
+  "file_path": "scripts/test_data.csv",
+  "file_summary": {
+    "total_rows": 17,
+    "total_columns": 8,
+    "column_names": [
+      "Report",
+      "Year",
+      "Observation Title",
+      "Observation",
+      "Rating",
+      "Target Date",
+      "Responsibility",
+      "Finding Status"
+    ],
+    "memory_usage_mb": 0.03,
+    "has_missing_values": false,
+    "total_missing_values": 0
+  },
+  "column_classifications": [
+    {
+      "category": "title",
+      "confidence": 0.95,
+      "needs_manual_review": false,
+      "original_name": "Report"
+    },
+    {
+      "category": "OTHER",
+      "confidence": 0.85,
+      "needs_manual_review": false,
+      "original_name": "Year"
+    },
+    {
+      "category": "title",
+      "confidence": 0.98,
+      "needs_manual_review": false,
+      "original_name": "Observation Title"
+    },
+    {
+      "category": "description",
+      "confidence": 0.98,
+      "needs_manual_review": false,
+      "original_name": "Observation"
+    },
+    {
+      "category": "priority",
+      "confidence": 0.98,
+      "needs_manual_review": false,
+      "original_name": "Rating"
+    },
+    {
+      "category": "due_date",
+      "confidence": 0.98,
+      "needs_manual_review": false,
+      "original_name": "Target Date"
+    },
+    {
+      "category": "department",
+      "confidence": 0.9,
+      "needs_manual_review": false,
+      "original_name": "Responsibility"
+    },
+    {
+      "category": "status",
+      "confidence": 0.98,
+      "needs_manual_review": false,
+      "original_name": "Finding Status"
+    }
+  ],
+  "column_mapping": {
+    "title": "Observation Title",
+    "description": "Observation",
+    "priority": "Rating",
+    "due_date": "Target Date",
+    "department": "Responsibility",
+    "status": "Finding Status"
+  },
+  "department_classifications": [
+    {
+      "department": "IT",
+      "confidence": 0.95,
+      "row": 0,
+      "original": "IT",
+      "suggested": "IT",
+      "source": "normalized",
+      "needs_manual_review": false
+    },
+    {
+      "department": "IT",
+      "confidence": 0.95,
+      "row": 1,
+      "original": "IT, INFOSEC, and IT Risk Mgt.",
+      "suggested": "IT",
+      "source": "normalized",
+      "needs_manual_review": false
+    },
+    {
+      "department": "IT",
+      "confidence": 0.95,
+      "row": 2,
+      "original": "IT/IT Risk mgt.",
+      "suggested": "IT",
+      "source": "normalized",
+      "needs_manual_review": false
+    },
+    {
+      "department": "IT",
+      "confidence": 0.95,
+      "row": 3,
+      "original": "IT",
+      "suggested": "IT",
+      "source": "normalized",
+      "needs_manual_review": false
+    },
+    {
+      "department": "IT",
+      "confidence": 0.95,
+      "row": 4,
+      "original": "IT",
+      "suggested": "IT",
+      "source": "normalized",
+      "needs_manual_review": false
+    }
+  ],
+  "statistics": {
+    "total_columns": 8,
+    "columns_classified": 7,
+    "columns_needing_review": 0,
+    "total_rows_processed": 5,
+    "departments_normalized": 5,
+    "departments_inferred": 0,
+    "departments_needing_review": 0
+  }
+}
