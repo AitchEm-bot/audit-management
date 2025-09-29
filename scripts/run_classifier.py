@@ -18,6 +18,7 @@ Date: 2025-09-30
 import sys
 import json
 import os
+import pandas as pd
 from typing import Dict, List, Any
 
 # Import parsing functions
@@ -150,14 +151,12 @@ def main():
         )
 
         print(f"  Total rows to process: {len(rows_data)}")
-        print(f"  Processing first 5 rows as sample...\n")
+        print(f"  Processing all rows...\n")
 
         department_classifications = []
 
-        # Process only first 5 rows for demonstration (change to process all if needed)
-        sample_size = min(5, len(rows_data))
-
-        for idx, row_data in enumerate(rows_data[:sample_size], 1):
+        # Process all rows
+        for idx, row_data in enumerate(rows_data, 1):
             result = process_department(
                 row_index=row_data['row_index'],
                 department_value=row_data['department'],
@@ -176,9 +175,95 @@ def main():
             print(f"{status_icon} Row {row_data['row_index']}: {result['original'] or '[empty]'} → {result['suggested']} ({source_label}, conf: {result['confidence']:.2f}){review_note}")
 
         # ====================================================================
-        # STEP 6: GENERATE OUTPUT
+        # STEP 6: PROCESS TICKETS WITH CORRECT ENCODING
         # ====================================================================
-        print("\n[STEP 6] Generating output...")
+        print("\n[STEP 6] Processing tickets with correct encoding...")
+
+        # Create department mapping for quick lookup
+        department_map = {}
+        for dept_class in department_classifications:
+            department_map[dept_class['row']] = dept_class['suggested']
+
+        # Process all rows into tickets
+        processed_tickets = []
+        for idx, row_data in enumerate(rows_data):
+            # Get values using column mapping
+            ticket = {}
+
+            # Title
+            if title_col and title_col in df_clean.columns:
+                ticket['title'] = str(df_clean.loc[row_data['row_index'], title_col]) if pd.notna(df_clean.loc[row_data['row_index'], title_col]) else f"Audit Item {idx + 1}"
+            else:
+                ticket['title'] = f"Audit Item {idx + 1}"
+
+            # Description
+            if description_col and description_col in df_clean.columns:
+                ticket['description'] = str(df_clean.loc[row_data['row_index'], description_col]) if pd.notna(df_clean.loc[row_data['row_index'], description_col]) else ""
+            else:
+                ticket['description'] = ""
+
+            # Department (use AI classification)
+            ticket['department'] = department_map.get(row_data['row_index'], 'General')
+
+            # Priority
+            priority_col = column_mapping.get('priority')
+            if priority_col and priority_col in df_clean.columns:
+                raw_priority = str(df_clean.loc[row_data['row_index'], priority_col]).lower() if pd.notna(df_clean.loc[row_data['row_index'], priority_col]) else 'medium'
+                # Map various priority formats
+                if any(word in raw_priority for word in ['critical', 'severe', 'major']):
+                    ticket['priority'] = 'critical'
+                elif any(word in raw_priority for word in ['high']):
+                    ticket['priority'] = 'high'
+                elif any(word in raw_priority for word in ['low', 'minor']):
+                    ticket['priority'] = 'low'
+                else:
+                    ticket['priority'] = 'medium'
+            else:
+                ticket['priority'] = 'medium'
+
+            # Status
+            status_col = column_mapping.get('status')
+            if status_col and status_col in df_clean.columns:
+                raw_status = str(df_clean.loc[row_data['row_index'], status_col]).lower() if pd.notna(df_clean.loc[row_data['row_index'], status_col]) else 'open'
+                if 'progress' in raw_status or 'wip' in raw_status:
+                    ticket['status'] = 'in_progress'
+                elif 'closed' in raw_status or 'complete' in raw_status:
+                    ticket['status'] = 'closed'
+                elif 'resolved' in raw_status or 'fixed' in raw_status:
+                    ticket['status'] = 'resolved'
+                else:
+                    ticket['status'] = 'open'
+            else:
+                ticket['status'] = 'open'
+
+            # Due date
+            due_date_col = column_mapping.get('due_date')
+            if due_date_col and due_date_col in df_clean.columns:
+                due_date_val = df_clean.loc[row_data['row_index'], due_date_col]
+                if pd.notna(due_date_val):
+                    try:
+                        # Convert to datetime and format as YYYY-MM-DD
+                        from datetime import datetime
+                        if isinstance(due_date_val, str):
+                            date_obj = pd.to_datetime(due_date_val)
+                        else:
+                            date_obj = due_date_val
+                        ticket['due_date'] = date_obj.strftime('%Y-%m-%d')
+                    except:
+                        ticket['due_date'] = None
+                else:
+                    ticket['due_date'] = None
+            else:
+                ticket['due_date'] = None
+
+            processed_tickets.append(ticket)
+
+        print(f"  Processed {len(processed_tickets)} tickets with correct encoding")
+
+        # ====================================================================
+        # STEP 7: GENERATE OUTPUT
+        # ====================================================================
+        print("\n[STEP 7] Generating output...")
 
         # Convert summary booleans to JSON-serializable format
         summary_json = summary.copy()
@@ -190,6 +275,7 @@ def main():
             'column_classifications': column_classifications,
             'column_mapping': column_mapping,
             'department_classifications': department_classifications,
+            'processed_tickets': processed_tickets,
             'statistics': {
                 'total_columns': len(column_classifications),
                 'columns_classified': len([c for c in column_classifications if c['category'] != 'OTHER']),
@@ -197,7 +283,8 @@ def main():
                 'total_rows_processed': len(department_classifications),
                 'departments_normalized': len([d for d in department_classifications if d['source'] == 'normalized']),
                 'departments_inferred': len([d for d in department_classifications if d['source'] == 'inferred_from_content']),
-                'departments_needing_review': len([d for d in department_classifications if d.get('needs_manual_review', False)])
+                'departments_needing_review': len([d for d in department_classifications if d.get('needs_manual_review', False)]),
+                'total_tickets_processed': len(processed_tickets)
             }
         }
 

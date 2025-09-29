@@ -66,6 +66,8 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
   const [csvErrors, setCsvErrors] = useState<Papa.ParseError[]>([])
   const [showPreview, setShowPreview] = useState(false)
   const [useAI, setUseAI] = useState(true)
+  const [aiColumnMapping, setAiColumnMapping] = useState<Record<string, string> | null>(null)
+  const [aiClassificationResults, setAiClassificationResults] = useState<any>(null)
 
   // Column mapping for different audit report formats
   const COLUMN_MAPPINGS = {
@@ -124,24 +126,47 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
     })
   }
 
-  const convertAuditRowToTicket = (row: AuditCSVRow, index: number): ProcessedTicket => {
-    // Extract title from multiple possible fields
-    const title = row.title || row.seq || row.description?.substring(0, 50) || `Audit Item ${index + 1}`
+  const convertAuditRowToTicket = (row: AuditCSVRow, index: number, aiMapping?: Record<string, string>): ProcessedTicket => {
+    // Helper function to get value from row using AI mapping or fallback fields
+    const getFieldValue = (category: string, fallbackFields: string[]): any => {
+      // First, try using AI mapping if available
+      if (aiMapping && aiMapping[category]) {
+        const aiColumn = aiMapping[category]
+        if (row[aiColumn] !== undefined) {
+          console.log(`[AI] Using AI-mapped column for ${category}: "${aiColumn}" = "${row[aiColumn]}"`)
+          return row[aiColumn]
+        }
+      }
 
-    // Extract description from multiple possible fields
-    const description = row.description || row.recommendations || row.management_response || ""
+      // Fallback to manual field checking
+      for (const field of fallbackFields) {
+        if (row[field] !== undefined) {
+          return row[field]
+        }
+      }
 
-    // Extract department from responsibility or department fields (no length limit now)
-    const department = row.responsibility || row.department || "General"
+      return undefined
+    }
+
+    // Extract title from AI mapping or fallback fields
+    const title = getFieldValue('title', ['title', 'seq']) ||
+                  getFieldValue('description', ['description'])?.substring(0, 50) ||
+                  `Audit Item ${index + 1}`
+
+    // Extract description from AI mapping or fallback fields
+    const description = getFieldValue('description', ['description', 'recommendations', 'management_response']) || ""
+
+    // Extract department from AI mapping or fallback fields
+    const department = getFieldValue('department', ['department', 'responsibility']) || "General"
 
     // Map priority/risk to standard priority levels
-    const rawPriority = (row.priority || row.risk || "medium").toLowerCase()
+    const rawPriority = (getFieldValue('priority', ['priority', 'risk']) || "medium").toString().toLowerCase()
     const priority = ["low", "medium", "high", "critical"].includes(rawPriority)
       ? rawPriority
       : "medium"
 
     // Map status fields
-    const rawStatus = (row.status || row.finding_status || "open").toLowerCase()
+    const rawStatus = (getFieldValue('status', ['status', 'finding_status']) || "open").toString().toLowerCase()
     const status = ["open", "in_progress", "resolved", "closed"].includes(rawStatus)
       ? rawStatus
       : "open"
@@ -162,13 +187,15 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
       }
     }
 
+    const dueDate = getFieldValue('due_date', ['due_date', 'target_date'])
+
     return {
       title: title.substring(0, 500), // Increased from 255 since title is now TEXT
       description,
       department,
       priority: priority as "low" | "medium" | "high" | "critical",
       status: status as "open" | "in_progress" | "resolved" | "closed",
-      due_date: formatDueDate(row.due_date),
+      due_date: formatDueDate(dueDate),
 
       // Additional audit-specific fields
       recommendations: row.recommendations || undefined,
@@ -182,7 +209,7 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
     }
   }
 
-  const parseCSV = async (csvText: string): Promise<ProcessedTicket[]> => {
+  const parseCSV = async (csvText: string, aiMapping?: Record<string, string> | null): Promise<ProcessedTicket[]> => {
     try {
       // Parse CSV with PapaParse
       const parseResult = await parseCSVWithPapa(csvText)
@@ -204,16 +231,33 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
         throw new Error("CSV file appears to be empty or contains no valid data rows")
       }
 
-      // Check for required columns (flexible approach)
+      // Check for required columns
       const headers = parseResult.meta.fields || []
-      const hasDescription = headers.some(h => COLUMN_MAPPINGS.description.includes(h.toLowerCase()))
 
-      if (!hasDescription) {
-        throw new Error("CSV must contain at least a description/finding column")
+      // Normalize AI mapping to match PapaParse's header normalization
+      const normalizedAiMapping: Record<string, string> = {}
+      if (aiMapping) {
+        Object.entries(aiMapping).forEach(([category, columnName]) => {
+          // Normalize the column name the same way PapaParse does
+          const normalized = String(columnName).toLowerCase().trim().replace(/[^a-z0-9]/g, '_')
+          normalizedAiMapping[category] = normalized
+        })
+        console.log('[AI] Normalized AI mapping:', normalizedAiMapping)
+      }
+
+      // If AI mapping is provided, check if we have description column from AI
+      if (normalizedAiMapping.description) {
+        console.log('[AI] Using AI-detected description column:', normalizedAiMapping.description)
+      } else {
+        // Fall back to manual column checking
+        const hasDescription = headers.some(h => COLUMN_MAPPINGS.description.includes(h.toLowerCase()))
+        if (!hasDescription) {
+          throw new Error("CSV must contain at least a description/finding column")
+        }
       }
 
       // Convert audit rows to processed tickets
-      const tickets = parseResult.data.map((row, index) => convertAuditRowToTicket(row, index))
+      const tickets = parseResult.data.map((row, index) => convertAuditRowToTicket(row, index, normalizedAiMapping))
 
       // Filter out empty/invalid rows with stricter validation
       const validTickets = tickets.filter(ticket => {
@@ -305,6 +349,56 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
     }
   }
 
+  const classifyCSVWithAI = async (file: File) => {
+    try {
+      console.log('[AI Classifier] Sending file to AI classification API...')
+      setProgress(5)
+
+      const formData = new FormData()
+      formData.append('file', file)
+      setProgress(8)
+
+      // Simulate progress during the long API call
+      const progressInterval = setInterval(() => {
+        setProgress((prev) => {
+          if (prev < 45) {
+            return prev + 1
+          }
+          return prev
+        })
+      }, 800) // Increment every 800ms
+
+      try {
+        const response = await fetch('/api/classify-csv', {
+          method: 'POST',
+          body: formData,
+        })
+
+        clearInterval(progressInterval)
+        setProgress(48)
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.details || errorData.error || 'AI classification failed')
+        }
+
+        const results = await response.json()
+        console.log('[AI Classifier] Classification results:', results)
+
+        setAiClassificationResults(results)
+        setAiColumnMapping(results.column_mapping)
+
+        return results
+      } catch (error) {
+        clearInterval(progressInterval)
+        throw error
+      }
+    } catch (error) {
+      console.error('[AI Classifier] Error:', error)
+      throw error
+    }
+  }
+
   const processCSVFile = async (file: File) => {
     setIsProcessing(true)
     setError(null)
@@ -313,47 +407,93 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
     setParsedCSVData([])
     setCsvErrors([])
     setShowPreview(false)
+    setAiColumnMapping(null)
+    setAiClassificationResults(null)
 
     try {
       console.log(`Processing CSV file: ${file.name} (${file.size} bytes)`)
-      const text = await file.text()
-      setProgress(10)
 
-      console.log('Parsing CSV with enhanced parser...')
-      const tickets = await parseCSV(text)
-      setProgress(25)
-
-      console.log(`Parsed ${tickets.length} tickets from CSV`)
+      // Step 1: If AI is enabled, classify the file first
+      let aiResults = null
+      let tickets: ProcessedTicket[] = []
 
       if (useAI) {
-        console.log("[v0] Starting AI department assignment for", tickets.length, "tickets")
-
+        console.log('[AI] Running AI classification...')
+        setProgress(3)
         try {
-          for (let i = 0; i < tickets.length; i++) {
-            const ticket = tickets[i]
-            if (!ticket.department || ticket.department === "General") {
-              console.log(`Processing ticket ${i + 1}/${tickets.length}: ${ticket.title}`)
+          aiResults = await classifyCSVWithAI(file)
+          // classifyCSVWithAI already set progress to 48
+          console.log('[AI] Classification complete:', aiResults.column_mapping)
 
-              // Add timeout to prevent hanging
-              const timeoutPromise = new Promise<string>((_, reject) =>
-                setTimeout(() => reject(new Error("Timeout")), 10000) // 10 second timeout
-              )
-
-              const departmentPromise = suggestDepartmentWithAI(ticket.title, ticket.description)
-
-              try {
-                const suggestedDepartment = await Promise.race([departmentPromise, timeoutPromise])
-                ticket.department = suggestedDepartment
-                console.log(`[v0] AI suggested department "${suggestedDepartment}" for ticket: ${ticket.title.substring(0, 50)}`)
-              } catch (timeoutError) {
-                console.warn(`Timeout for ticket ${i + 1}, using keyword fallback`)
-                ticket.department = suggestDepartmentWithKeywords(ticket.title, ticket.description)
-              }
-            }
-            setProgress(25 + ((i + 1) / tickets.length) * 25) // Progress from 25% to 50%
+          // If AI returned processed tickets, use them directly (with correct encoding)
+          if (aiResults.processed_tickets && aiResults.processed_tickets.length > 0) {
+            console.log('[AI] Using pre-processed tickets from Python (correct encoding)')
+            setProgress(50)
+            tickets = aiResults.processed_tickets as ProcessedTicket[]
+            console.log(`Using ${tickets.length} tickets from AI classifier`)
           }
-        } catch (error) {
-          console.error("AI processing failed, continuing with existing departments:", error)
+        } catch (aiError) {
+          console.warn('[AI] Classification failed, falling back to manual mapping:', aiError)
+          setProgress(15)
+          // Continue without AI - will use manual mapping
+        }
+      }
+
+      // Step 2: If we don't have tickets from AI, parse CSV in browser (fallback)
+      if (tickets.length === 0) {
+        const text = await file.text()
+        setProgress(25)
+
+        console.log('Parsing CSV with enhanced parser...')
+        tickets = await parseCSV(text, aiResults?.column_mapping)
+        setProgress(30)
+
+        console.log(`Parsed ${tickets.length} tickets from CSV`)
+
+        // Apply AI department classifications if available
+        if (useAI && aiResults && aiResults.department_classifications) {
+          console.log("[AI] Applying AI department classifications...")
+
+          const departmentMap = new Map(
+            aiResults.department_classifications.map((dept: any) => [dept.row, dept.suggested])
+        )
+
+          tickets.forEach((ticket, index) => {
+            const aiDepartment = departmentMap.get(index)
+            if (aiDepartment && aiDepartment !== 'OTHER') {
+              ticket.department = aiDepartment
+              console.log(`[AI] Assigned department "${aiDepartment}" to ticket ${index + 1}`)
+            } else if (!ticket.department || ticket.department === "General") {
+              // Fallback to keyword matching if AI didn't provide a department
+              ticket.department = suggestDepartmentWithKeywords(ticket.title, ticket.description)
+            }
+          })
+
+          setProgress(50)
+        } else if (useAI) {
+          // Fallback to old AI API if new classifier didn't work
+          console.log("[AI] Using fallback department suggestion...")
+          try {
+            for (let i = 0; i < tickets.length; i++) {
+              const ticket = tickets[i]
+              if (!ticket.department || ticket.department === "General") {
+                const timeoutPromise = new Promise<string>((_, reject) =>
+                  setTimeout(() => reject(new Error("Timeout")), 10000)
+                )
+                const departmentPromise = suggestDepartmentWithAI(ticket.title, ticket.description)
+
+                try {
+                  const suggestedDepartment = await Promise.race([departmentPromise, timeoutPromise])
+                  ticket.department = suggestedDepartment
+                } catch {
+                  ticket.department = suggestDepartmentWithKeywords(ticket.title, ticket.description)
+                }
+              }
+              setProgress(30 + ((i + 1) / tickets.length) * 20)
+            }
+          } catch (error) {
+            console.error("AI processing failed:", error)
+          }
         }
       }
 
@@ -452,7 +592,7 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
             <Switch id="use-ai" checked={useAI} onCheckedChange={setUseAI} disabled={isProcessing} />
             <Label htmlFor="use-ai" className="flex items-center gap-2">
               <Brain className="h-4 w-4" />
-              Use AI for department assignment
+              Use AI for categorization
             </Label>
           </div>
 
@@ -474,7 +614,7 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
                 </p>
                 {useAI && (
                   <p className="text-sm text-blue-600 mt-2">
-                    AI will automatically suggest departments for tickets without department assignments
+                    AI will automatically map columns and classify departments for all tickets
                   </p>
                 )}
               </div>
@@ -485,11 +625,17 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
             <div className="mt-4 space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span>
-                  {progress < 25 && "Reading CSV file..."}
-                  {progress >= 25 && progress < 50 && useAI && "AI analyzing departments..."}
+                  {progress < 5 && useAI && "Uploading file to AI..."}
+                  {progress < 5 && !useAI && "Reading CSV file..."}
+                  {progress >= 5 && progress < 10 && useAI && "Preparing file for analysis..."}
+                  {progress >= 10 && progress < 15 && useAI && "AI analyzing file structure..."}
+                  {progress >= 15 && progress < 22 && useAI && "AI classifying columns..."}
+                  {progress >= 22 && progress < 25 && useAI && "AI processing departments..."}
+                  {progress >= 25 && progress < 50 && useAI && "AI extracting ticket data..."}
                   {progress >= 25 && progress < 50 && !useAI && "Processing tickets..."}
-                  {progress >= 50 && progress < 75 && "Preparing database..."}
-                  {progress >= 75 && "Creating tickets..."}
+                  {progress >= 50 && progress < 75 && "Validating ticket data..."}
+                  {progress >= 75 && progress < 90 && "Creating tickets in database..."}
+                  {progress >= 90 && "Finalizing..."}
                 </span>
                 <span>{progress}%</span>
               </div>
@@ -509,6 +655,37 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
               <CheckCircle className="h-4 w-4" />
               <AlertDescription>{success}</AlertDescription>
             </Alert>
+          )}
+
+          {aiClassificationResults && (
+            <div className="mt-4 space-y-2 border rounded-lg p-4 bg-blue-50">
+              <h4 className="font-medium flex items-center gap-2">
+                <Brain className="h-4 w-4" />
+                AI Classification Results
+              </h4>
+              <div className="text-sm space-y-2">
+                <div>
+                  <strong>Columns Classified:</strong> {aiClassificationResults.statistics?.columns_classified}/{aiClassificationResults.statistics?.total_columns}
+                </div>
+                {aiColumnMapping && Object.keys(aiColumnMapping).length > 0 && (
+                  <div>
+                    <strong>Column Mapping:</strong>
+                    <ul className="list-disc list-inside ml-2 mt-1">
+                      {Object.entries(aiColumnMapping).map(([category, columnName]) => (
+                        <li key={category}>
+                          <code className="bg-white px-1 rounded">{String(columnName)}</code> → <strong>{category}</strong>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {aiClassificationResults.statistics && (
+                  <div>
+                    <strong>Departments:</strong> {aiClassificationResults.statistics.departments_normalized} normalized, {aiClassificationResults.statistics.departments_inferred} inferred
+                  </div>
+                )}
+              </div>
+            </div>
           )}
 
           {showPreview && parsedCSVData.length > 0 && (

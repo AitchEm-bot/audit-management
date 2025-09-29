@@ -13,7 +13,7 @@
       "Responsibility",
       "Finding Status"
     ],
-    "memory_usage_mb": 0.03,
+    "memory_usage_mb": 0.05,
     "has_missing_values": false,
     "total_missing_values": 0
   },
@@ -56,7 +56,7 @@
     },
     {
       "category": "department",
-      "confidence": 0.9,
+      "confidence": 0.98,
       "needs_manual_review": false,
       "original_name": "Responsibility"
     },
@@ -122,6 +122,144 @@
       "needs_manual_review": false
     }
   ],
+  "processed_tickets": [
+    {
+      "title": "Non-Compliance with IT & Cyber Policies",
+      "description": "An effective governance framework for IT & Cyber should be managed and regularly reviewed and communicated to insure Tas’heel commitment and objectives of information technology and cyber security. As per SAMA cyber security framework clause 3.1.3 (2.) which states “The cyber security policy should be reviewed periodically according to a predefined and structured review process.”, and SAMA IT Governance clause 3.1.4 (1.) which states “IT policy and procedures should be defined, approved, communicated, and implemented”. During the review, the following was noted:\n1. Lack of period review of the UCFS IT Policies and Procedures As per IT Policies and Procedures Sign-off we noted that none of the IT policies and procedures were not reviewed recently. The latest review was conducted in May 2021. With reference to IT Security Policy Clause 1.4. Review Cycle “This document is to be reviewed by the IT Security Manager at least annually or following a major information security incident.”. Following sample of outdated policies:\nUCFS - IT - STR01 – Strategy V1.1, Apr 2021\nUCFS - IT - STR02 - Executive Committees V1.0, Apr 2021\nUCFS - IT - POL01 - Security Policy V1.1, Oct 2020\nUCFS - IT - POL02 - Infrastructure Policy V1.1, Mar 2021\nUCFS - IT - POL03 - Technology Asset Management Policy V1.1, May 2021\n2. Non-compliance with the implementation of the change management policy. We have found that some changes do not follow the change management policy clause 6.2 and 6.6, For example:\n• Request ID: ITSM-9922, request made by Mohammed Abdelhamid (Procco)\n• Change Request was assigned to Wael AlAzizy\n• Implementation approval done by Wael AlAzizy In the above example, the review and approval are performed by Wael AlAzizy. It should be noted here that Wael AlAzizy is neither a member of the Change Advisory Board (CAB), nor a department head, or a member of the incident response team. However, as per change management policy the approval matrix clearly states that only the Change Advisory Board CAB, CISO, department head, or incident response team have the authority to approve changes. This example depicts a violation of the change management policy.\n3. As per Access Control Policy clause 9.8 which states that “Using unique user IDs to enable users to be linked to and held responsible for their actions” We have found that Tas’heel does not comply with the Access control policy where some users such as Jazim Jamal, and Thiyagu have different user IDs for each system as shown in the audit report.",
+      "department": "IT",
+      "priority": "low",
+      "status": "open",
+      "due_date": "2025-09-25"
+    },
+    {
+      "title": "Weaknesses in IT Risk Management Framework and Assessment Practices",
+      "description": "SAMA IT governance framework 3.2.1.7 states, “IT risk management process should be initiated at an early stage of the program and project implementation, prior to initiating critical changes to the information assets and at the time of outsourcing services”. Further, an IT risk treatment plan should be defined, approved, and communicated. The plan documents design, implementation of the controls, and risk treatment options (accept, avoid, transfer, or mitigate).\nOur review of the IT risk management Process identified the following observations:\n• The IT risk management framework is not comprehensively defined, missing key elements such as the IT risk management and identification process, roles and responsibilities for IT risk management, IT risk rating criteria and appetite, and an approved process for IT risk acceptance.\n• IT risks are identified through discussions with the IT team but without following a structured and formalized process.\n• A comprehensive IT risk universe is not maintained, documenting IT assets, their criticality, and classification.\n• In-scope applications (Way4 Loan, Way4 Cards, Altitude, Backoffice) - specific risk assessment criteria are not defined to evaluate the criticality of IT applications or conduct periodic risk assessments.\n• While IT risk assessments are conducted, they do not comprehensively cover key areas, such as strategy failure, single points of IT failure, power failure, malicious code, denial-of-service attacks, administrative activities, and IT fraud.\n• Risk profiles for individual IT risks are not maintained to track their lifecycle.\n• IT Key Risk Indicators (KRIs) and Key Performance Indicators (KPIs) are not defined for all IT risks.\n• IT risk assessment processes for contracts and projects are inadequate. Tasheel’s risk team did not provide input on the overall risk status for the Lean Technologies contract, and there is no formal approval confirming the risk assessment. Similarly, six residual risks are categorized as High for the Bank Al Jazeera contract, yet no compensatory controls have been identified. Furthermore, three newly implemented IT projects (Technology Infrastructure Upgrade, Oracle Enterprise Upgrade, and UCFS Wi-Fi Project) lack a formal risk assessment and project rating criteria, increasing the risk of unidentified vulnerabilities.",
+      "department": "IT",
+      "priority": "high",
+      "status": "open",
+      "due_date": "2025-07-31"
+    },
+    {
+      "title": "Non-compliance with SAMA IT Governance Framework",
+      "description": "The SAMA IT Governance framework applies to member organizations regulated by SAMA, which are responsible for implementing and complying with it.\nDuring our review of the SAMA compliance documents, we noticed that the Tasheel IT department did not evaluate the SAMA IT governance framework to determine its compliance with the required maturity level. This evaluation should cover the following areas:\n• IT governance and leadership.\n• IT risk management.\n• System change management.\n• IT operation management.",
+      "department": "IT",
+      "priority": "high",
+      "status": "open",
+      "due_date": "2025-07-31"
+    },
+    {
+      "title": "Gaps in IT Project Execution, Contracts, and Financial Oversight",
+      "description": "During our review, we identified gaps in IT project execution, contract governance, and financial oversight, which may impact cost efficiency, risk exposure, and project effectiveness.\nTwo critical IT projects, Redundant Systems and Core Switch Upgrade - UCFS, remain incomplete, which could impact system resilience and operational efficiency. \nAdditionally, a post-implementation review was not conducted for two completed projects (Oracle Enterprise Upgrade and UCFS Wi-Fi Project), limiting the ability to assess whether objectives were met and lessons learned were documented for future improvements.\nA review of nine IT contracts revealed weaknesses in termination clauses, exposing Tasheel to financial risks in case of early contract termination:\n• Sahara, Azentio, and MobiShastra Contracts: Require 100% payment upon early termination, leading to a significant financial burden.\n• Unifonic Contract: Lacks a termination clause, creating uncertainty in contractual obligations.\n• Iron Mountain Contract: Termination clauses are not documented, increasing legal risks.\nFurthermore, key governance and financial controls are missing:\n• A Business Requirements Document (BRD) was not prepared for Oracle Enterprise Upgrade, UCFS Wi-Fi Project, Redundant Systems, and Core Switch Upgrade – UCFS, which may result in misalignment between IT projects and business needs.\n• IT investment assessments were not conducted to evaluate the cost versus budget for IT initiatives, increasing the risk of budget overruns and inefficient resource allocation. Several projects were delayed and not completed within the planned timelines, creating a potential risk of cost overruns. Furthermore, no assessment or analysis was conducted to evaluate the impact of these delays on the overall cost versus the approved budget.",
+      "department": "IT",
+      "priority": "high",
+      "status": "open",
+      "due_date": "2025-07-31"
+    },
+    {
+      "title": "Gaps in IT Policy and Process",
+      "description": "SAMA IT Governance Framework 3.1.4 states that “IT policies and procedures should be defined, approved, communicated, and implemented” to ensure alignment with regulatory requirements and organizational objectives. However, our review of IT governance and management controls revealed that several IT policies are outdated or missing, creating risks related to compliance, security, and operational efficiency.\nThe following IT policies and procedures have not been reviewed or updated within the required timeframe, increasing the risk of misalignment with current security threats, compliance requirements, and operational needs:\nPolicies Not Updated Since 2020:\n• IT Security Policy • Change Management Policy • Enterprise Key Management Policy • Whistleblowing Policy (compliance part) \nPolicies Not Updated Since 2021:\n• Infrastructure Policy • Technology Asset Management Policy • Software Management Policy • IT Project Management Policy • Backup Policy • IT Disaster Recovery Policy • Technology Equipment Disposal Policy • Bring Your Own Device (BYOD) Policy • Internet & Email Usage Policy • Retention and Archival Policy\nMissing IT Policies:\nAdditionally, several critical IT governance policies are not documented:\n• IT Budget Policies and Processes • Enterprise Architecture Policy • IT Availability and Capacity • Network Architecture Policy",
+      "department": "IT",
+      "priority": "high",
+      "status": "open",
+      "due_date": "2025-07-31"
+    },
+    {
+      "title": "Gaps in IT Strategy Approval and Risk Management Practices",
+      "description": "SAMA IT Governance framework 3.1.2 stated that an “IT strategy should be defined in alignment with the Organization’s strategic objectives and in compliance with legal and regulatory requirements.”\nThe IT strategy manual has not been formally approved, resulting in uncertainty regarding its alignment with Tasheel’s overall strategy. Additionally, while the strategy outlines action plans for IT system changes and additions, it does not define timelines or a structured go/no-go decision-making process for implementation. Furthermore, the IT strategy lacks a defined approach for managing strategic and emerging technology risks that could impact Tasheel’s organization-wide objectives. Additionally, there is no formal training program in place to provide periodic training on emerging technologies for IT staff, which could hinder their ability to adapt and innovate.",
+      "department": "General",
+      "priority": "medium",
+      "status": "open",
+      "due_date": "2025-10-30"
+    },
+    {
+      "title": "Misalignment among Job Description (JD) and Key Performance Indicators (KPIs)",
+      "description": "SAMA IT Governance framework 3.1.9 states, “KPIs should be defined considering the following, but not limited to: \na. IT function and related processes. \nb. workforce competency and development.\nc. compliance with regulatory regulations.”\nDuring our review of the IT team job description and its alignment with respective employee key performance indicators (KPIs), we noted that IT team JDs are neither as per current duties nor mapped with respective KPIs:\n• The IT Applications Head JD includes KPIs related to IT Audit and Risk Assessment, yet no formal job responsibilities are documented for these tasks, creating ambiguity in role expectations.\n• The JD also states that the IT Applications Head is responsible for \"Deploying fixes/changes,\" whereas this task is typically performed by the IT operations or development team, leading to misalignment between duties and KPIs.\n• No KPIs are defined for IT asset inventory management or ensuring the availability of critical systems in the Disaster Recovery (DR) environment within the IT Applications Head JD, which could impact system resilience and IT governance.\n• The IT Support Lead JD lacks KPIs for Application Support and Card Support responsibilities, making measuring performance effectiveness and service delivery standards difficult.",
+      "department": "General",
+      "priority": "low",
+      "status": "open",
+      "due_date": "2025-07-31"
+    },
+    {
+      "title": "Weaknesses in Change Management Compliance and Controls",
+      "description": "According to Tasheel's change management policy, “all changes shall be initiated through a change request form approved by the department head or line manager”. Furthermore, “a UAT sign-off should be obtained, and release authorization to production approval should be provided by the Head of Technology, CISO, CRO, and the Change Control Board (CCB)”.\nHowever, our review of change management processes for October 2023 identified multiple compliance gaps and control deficiencies:\n• Excessive User Access to Production & Development Environments: 15 users have simultaneous access to both production (PRD) and test/development environments of Altitude and Back Office applications, leading to Segregation of Duties (SoD) conflicts (refer to SoD Conflicts Annexure). (Repeated Observation)\n• Improper Change Prioritization: High-priority changes were closed after lower-risk changes, indicating an absence of structured priority management. Critical applications such as BO (14699) and non-critical requests (e.g., turning off voicemail) had the same priority level, highlighting inconsistent risk classification.\n• Undefined Change Classification: The Change Management (CM) policy lacks clear classification criteria, resulting in inconsistent categorization and risk assessment.\n• No Application Source Code Review: Application source code reviews are not conducted, increasing the risk of undetected vulnerabilities or improper code changes.\n• Inadequate UAT Environment Replication: The UAT environment does not mirror production, impacting the accuracy and reliability of pre-deployment testing.\n• Lack of Change Control Board (CCB) Review: Not all changes were formally reviewed by the Change Control Board, leading to potential unapproved modifications in production.\n• Incomplete UAT Testing and Sign-offs: Several change requests (ITSM 11126, 13323, 14038, 21755, 11940, 11906, 11568, etc.) lacked documented UAT test cases, scenarios, test plans, test scripts, and test result reports, reducing confidence in change validation.\n• Untracked Changes in WAY4 Cards System: Changes made to the WAY4 Cards system were not recorded in JIRA, creating gaps in the change audit trail.\n• Missing Resolved Dates in JIRA: The JIRA 136 change/service request is missing a resolved date, leading to incomplete audit trails.\n• Unconfirmed UAT Testing for Patch Updates: UAT testing for patches was not confirmed or documented in JIRA for the following patch tickets:\no ITSM-19869 o ITSM-19661 o ITSM-19839 o ITSM-14898 o ITSM-19186",
+      "department": "General",
+      "priority": "high",
+      "status": "open",
+      "due_date": "2025-07-31"
+    },
+    {
+      "title": "Exceptions in User Access Provisions and Terminations – Repeated",
+      "description": "As per Tasheel IAM policy, “all users should be created after the department head or line manager approves”. User access should be terminated immediately when it is not required, and Resource owners shall review user access privileges at least annually or whenever significant changes occur. \nHowever, our review of user access management processes identified multiple violations of these requirements, leading to gaps in access control, security, and governance:\n• Information security approval is not obtained for Altitude new access (ITSM 16320, 16317, 15333, 14744, 14029, and 16693) and Back-Office new access (ITSM 20501, 18366, 15252, 12074, 10974, 7060).\n• The internal service level agreement (SLA) to complete access requests on time is not being met for ITSM 14744 Altitude and ITSM 18366, 12074, 2341 BO.\n• Two Altitude users (ITSM 14029 and 16693) were created 2 days and 7 days before line manager approval.\n• Four users (Rabab Alabdulsallam, Zainab AlShalah, Juman AlAsiri, Abdul Hameed) are created on Altitude without tickets on Jira tool and one user (Abdul Hameed) approved his own access-rights request.\n• Five users (Aman Al-Amri, BAJ – Shroug Aljirfin, Abdullah AlRashed, Hasan Alaqaf, Hussain Alhassan) have been created on Altitude without tickets in the Jira tool.\n• An Altitude and Back Office (BO) application user was created without approval from the line manager (ITSM 20501, 15252, Abdullah AlRashed, and Hasan Alaqaf—BO).\n• Users without job requirements are granted additional access. For users identified with additional rights, please refer to the annexure.\n• The approval authority matrix is not defined.\n• The access rule matrix is not defined to assess access rights conflicts before granting access to in-scope applications (BO, WAY4 Cards/Loan, and Altitude).\n• User access rights review was not conducted for in-scope applications and their supporting operating systems and databases.\n• We noted multiple instances of employees who left Tasheel are still active users on the below applications:\noWAY4 – 6 Users oActive Directory – 4 Users  oAltitude – 6 Users oBack Office – 1 User",
+      "department": "General",
+      "priority": "high",
+      "status": "open",
+      "due_date": "2025-07-31"
+    },
+    {
+      "title": "Presence of Dormant Accounts and Generic User Accounts",
+      "description": "Tasheel IT Security policy states, “User accounts in the network (AD) which exceed 45 days since last activity must be disabled and use of generic user IDs must be limited to where the use of standard UCFS user IDs is not feasible. Further, Generic user IDs must be requested through the department manager or IT Sec who is accountable for maintaining these user IDs.”\n• We noted that unused/logged-in accounts were found on the systems below:\no WAY4 – 33 user accounts have not logged in since Sep 2020. o Active Directory – 350+ user accounts have not logged in since Mar 2020. \no Altitude - 9 user accounts have not logged in since Dec 2021. Please refer to the Dormant Account Annexure.\n• We noted generic user accounts were found on the systems below:\no Active Directory – 105 users o WAY4 – 2 users. o Back Office (BO) – 8 users. Please refer to the Generic Account Annexure.",
+      "department": "General",
+      "priority": "high",
+      "status": "open",
+      "due_date": "2025-07-31"
+    },
+    {
+      "title": "Weakness in Data Center (DC) and Tape Room",
+      "description": "According to SAMA's IT Governance framework 3.3.5, “Adequate physical controls are designed and implemented to protect IT facilities and equipment from damage and unauthorized access.”\nDuring our review of the eXtra data center (DC) and tape room at Tasheel premises, we noted that:\n• The backup tape room is manually locked with keys, and no CCTV is installed inside the tape room.\n• Backup tapes are moved outside Tasheel premises. However, a vendor (Infofort) authorized person is not maintained to assess whether Infofort's authorized staff is collecting backup tapes.\n• A list of authorized users' access to the data center and tape room is not maintained.\n• Few visitors' time out is documented, and cleaning visitors' time is not maintained.",
+      "department": "General",
+      "priority": "high",
+      "status": "open",
+      "due_date": "2025-07-30"
+    },
+    {
+      "title": "Weaknesses in the Patch Management Process",
+      "description": "As per the SAMA IT Governance framework, 3.4.9 “Patch management process should be defined and implemented to ensure up-to-date with the latest applicable and relevant patches (i.e., functional or non-functional) are installed in a timely manner to avoid technical including security breaches due to existing vulnerabilities in the system.”\nOur review of IT Operations Management identified several insufficiencies that pose security and compliance risks to Tasheel Finance’s IT infrastructure.\n• A review of Jira ticket logs (November 2024) revealed that the Oracle Critical Patch Update (Issue Key: ITSM-19064), created on July 18, 2024, is still in process, indicating a significant delay in patch implementation.\n• Microsoft security patches for June, July, and August 2024 were deployed only in September 2024. Notably, several patches from June and July were classified as high priority. This indicates a delay of 2 to 3 months in patch deployment, potentially increasing the risk of exploitation and impacting the organization’s security posture.",
+      "department": "General",
+      "priority": "high",
+      "status": "open",
+      "due_date": "2025-07-31"
+    },
+    {
+      "title": "Incomplete IT Asset Register Leading to Ineffective Asset Tracking (Repeated)",
+      "description": "As per the SAMA IT Governance framework 3.3.1, “An Asset management process should be established to provide visibility of the member organization's information assets by maintaining an accurate and up-to-date inventory.”\nHowever, our review found that Tasheel Finance’s IT asset register lacks essential information and classification, increasing the risk of mismanagement, financial discrepancies, and operational inefficiencies. Specifically, the following critical fields are missing or incomplete:\n• Custodian Details: The asset register does not include the assigned custodian’s name, title, and contact details, making it difficult to track ownership and accountability.\n• Date and Time Records: The acquisition, installation, or last update date and time for assets are missing, preventing proper lifecycle tracking and maintenance scheduling.\n• Asset Status: There is no field indicating whether an asset is active, inactive, or disposed of, leading to poor inventory control and potential financial misstatements.\n• Brand and Model Information: The asset register does not document the brand and model of IT assets, making procurement decisions and asset replacements challenging.",
+      "department": "General",
+      "priority": "high",
+      "status": "open",
+      "due_date": "2025-07-31"
+    },
+    {
+      "title": "Lack of Software Inventory",
+      "description": "No centralized software inventory report is available to determine which applications and software are installed on workstations, increasing the risk of unapproved, outdated, or unauthorized software being used.",
+      "department": "General",
+      "priority": "medium",
+      "status": "open",
+      "due_date": "2025-07-31"
+    },
+    {
+      "title": "Inadequate License Tracking Process (Repeated)",
+      "description": "The current license tracker spreadsheet is incomplete, increasing the risk of application disruptions, unplanned costs, and non-compliance with vendor agreements. Precisely, the license tracker does not capture critical information, including:\n•License costs, essential for budgeting and financial forecasting.\n•References to license agreements, which outline key terms and conditions, making it difficult to verify compliance.\n•Vendor-provided support and maintenance details impact service continuity and issue resolution.\n•Supplier details and contact information required for contract management and renewal negotiations.\n•The number of licenses purchased affects proper allocation and usage monitoring.\n•Renewal dates are essential to avoid last-minute renewals or lapses in licensing.",
+      "department": "General",
+      "priority": "medium",
+      "status": "open",
+      "due_date": "2025-07-31"
+    },
+    {
+      "title": "Inadequate SLA Review and Revision Process",
+      "description": "Our Service Level Agreement (SLA) review identified deficiencies in the review and revision process, which led to potential operational inefficiencies, regulatory risks, and contractual disputes.\n• Inadequate Risk Assessment and Mitigation: The SLA does not adequately address risk management, exposing Tasheel Finance to unforeseen risks, degraded service quality, and increased costs.\n• The OpenWay and Tasheel Finance License Agreement & Support Maintenance Agreement (February 10, 2020) and the BlueMena and Tasheel Finance SLA (February 20, 2021) have not been reviewed since their inception, which increases the risk of outdated terms, misalignment with business needs, and regulatory non-compliance.\n• We identified risks associated with the service provider's name change from Altitude to Blueworld.ai, which has not been adequately updated in the Service Level Agreement (SLA). The support email address was changed from meeting.point@altitude.com to wecare@blueworld.ai",
+      "department": "General",
+      "priority": "medium",
+      "status": "open",
+      "due_date": "2025-07-31"
+    },
+    {
+      "title": "Incorrect Calculation of the Baseeta APR on a Transactional Level",
+      "description": "During the review of Baseeta APR calculations applied to customers' transactions in the Credit Card monthly statements, it was identified that the APR values disclosed to customers were incorrectly calculated in a sample of 10 cases. The observed discrepancies are material and inconsistent with the computation methodology prescribed by SAMA's APR Calculation Guidelines. \nRoot Cause:\n• The issue was traced to a miscalculation in the Way4 system, which automatically calculates the APR for the credit card's monthly statement. The current system logic does not correctly apply the prescribed formula or input parameters, resulting in incorrect APR values. \n• Additionally, IA observed that the Equal Payment Plan (EPP) portfolio report does not include APR reporting. Because of this system limitation, the Product Owner was unable to verify or validate the APR output for Baseeta transactions.",
+      "department": "General",
+      "priority": "high",
+      "status": "open",
+      "due_date": "2025-09-30"
+    }
+  ],
   "statistics": {
     "total_columns": 8,
     "columns_classified": 7,
@@ -129,6 +267,7 @@
     "total_rows_processed": 5,
     "departments_normalized": 5,
     "departments_inferred": 0,
-    "departments_needing_review": 0
+    "departments_needing_review": 0,
+    "total_tickets_processed": 17
   }
 }

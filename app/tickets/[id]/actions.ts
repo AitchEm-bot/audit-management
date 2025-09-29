@@ -85,6 +85,90 @@ export async function addComment(ticketId: string, formData: FormData) {
   redirect(`/tickets/${ticketId}?success=Comment added successfully&refresh=${Date.now()}`)
 }
 
+export async function updateComment(activityId: string, newContent: string) {
+  const supabase = await createClient()
+
+  // Check if user is authenticated
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { error: 'Not authenticated' }
+  }
+
+  if (!newContent || !newContent.trim()) {
+    return { error: 'Comment content is required' }
+  }
+
+  try {
+    // Update the comment - RLS policy will ensure user owns the comment
+    const { data, error } = await supabase
+      .from('ticket_activities')
+      .update({ content: newContent.trim() })
+      .eq('id', activityId)
+      .eq('user_id', user.id) // Extra safety check
+      .eq('activity_type', 'comment')
+      .select('ticket_id')
+      .single()
+
+    if (error) {
+      console.error('Error updating comment:', error)
+      return { error: 'Failed to update comment. You can only edit your own comments.' }
+    }
+
+    console.log('Comment updated successfully')
+
+    // Revalidate the ticket page
+    if (data?.ticket_id) {
+      revalidatePath(`/tickets/${data.ticket_id}`)
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error('Server error updating comment:', error)
+    return { error: 'Failed to update comment' }
+  }
+}
+
+export async function deleteComment(activityId: string, ticketId: string) {
+  const supabase = await createClient()
+
+  // Check if user is authenticated
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { error: 'Not authenticated' }
+  }
+
+  try {
+    // Delete the comment - RLS policy will ensure user owns the comment
+    const { error } = await supabase
+      .from('ticket_activities')
+      .delete()
+      .eq('id', activityId)
+      .eq('user_id', user.id) // Extra safety check
+      .eq('activity_type', 'comment')
+
+    if (error) {
+      console.error('Error deleting comment:', error)
+      return { error: 'Failed to delete comment. You can only delete your own comments.' }
+    }
+
+    console.log('Comment deleted successfully')
+
+    // Revalidate the ticket page
+    revalidatePath(`/tickets/${ticketId}`)
+
+    return { success: true }
+  } catch (error) {
+    console.error('Server error deleting comment:', error)
+    return { error: 'Failed to delete comment' }
+  }
+}
+
 export async function updateTicketStatus(ticketId: string, newStatus: string) {
   const supabase = await createClient()
 

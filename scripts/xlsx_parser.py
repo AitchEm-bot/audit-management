@@ -114,12 +114,12 @@ def read_csv_file(file_path: str, encoding: str = 'utf-8') -> pd.DataFrame:
         FileNotFoundError: If file doesn't exist
         ValueError: If file cannot be read
     """
-    # Try multiple encodings
-    encodings_to_try = [encoding, 'latin-1', 'iso-8859-1', 'windows-1252', 'cp1252']
+    # Try multiple encodings - prioritize Windows encodings that handle special chars
+    encodings_to_try = [encoding, 'utf-8-sig', 'windows-1252', 'cp1252', 'latin-1', 'iso-8859-1']
 
     for enc in encodings_to_try:
         try:
-            df = pd.read_csv(file_path, encoding=enc)
+            df = pd.read_csv(file_path, encoding=enc, encoding_errors='strict')
             print(f"✓ Successfully read CSV file: {file_path}")
             print(f"  Rows: {len(df)}, Columns: {len(df.columns)}")
             if enc != encoding:
