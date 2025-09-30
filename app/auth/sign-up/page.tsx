@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { PasswordStrengthIndicator } from "@/components/password-strength-indicator"
 import { validatePassword } from "@/lib/password-validation"
 import Link from "next/link"
@@ -88,13 +89,25 @@ export default function SignUpPage() {
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="department">Department</Label>
-                    <Input
-                      id="department"
-                      type="text"
-                      placeholder="IT, Finance, HR, etc."
+                    <Select
                       value={department}
-                      onChange={(e) => setDepartment(e.target.value)}
-                    />
+                      onValueChange={setDepartment}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select your department" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="IT">IT</SelectItem>
+                        <SelectItem value="Finance">Finance</SelectItem>
+                        <SelectItem value="HR">HR</SelectItem>
+                        <SelectItem value="Operations">Operations</SelectItem>
+                        <SelectItem value="Legal">Legal</SelectItem>
+                        <SelectItem value="Compliance">Compliance</SelectItem>
+                        <SelectItem value="Marketing">Marketing</SelectItem>
+                        <SelectItem value="Sales">Sales</SelectItem>
+                        <SelectItem value="General">General</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="email">Email</Label>

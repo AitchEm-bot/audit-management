@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,9 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { DepartmentSuggestion } from "@/components/department-suggestion"
 import { deleteTicket } from "@/app/tickets/[id]/edit/actions"
-import { Save, ArrowLeft, Trash2 } from "lucide-react"
+import { Save, ArrowLeft, Trash2, User, Users } from "lucide-react"
 import Link from "next/link"
 
 interface Ticket {
@@ -23,6 +22,13 @@ interface Ticket {
   priority: string
   status: string
   due_date: string | null
+  assigned_to: string | null
+}
+
+interface UserProfile {
+  id: string
+  full_name: string
+  email: string
 }
 
 interface EditTicketFormProps {
@@ -33,7 +39,44 @@ export function EditTicketForm({ ticket: initialTicket }: EditTicketFormProps) {
   const [ticket, setTicket] = useState<Ticket>(initialTicket)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [availableUsers, setAvailableUsers] = useState<UserProfile[]>([])
+  const [loadingUsers, setLoadingUsers] = useState(false)
   const router = useRouter()
+
+  // Fetch users by department
+  const fetchUsersByDepartment = async (department: string) => {
+    if (!department || department === "General") {
+      setAvailableUsers([])
+      return
+    }
+
+    setLoadingUsers(true)
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, email")
+        .eq("department", department)
+        .order("full_name", { ascending: true })
+
+      if (error) {
+        console.error("Error fetching users:", error)
+        setAvailableUsers([])
+      } else {
+        setAvailableUsers(data || [])
+      }
+    } catch (error) {
+      console.error("Error fetching users:", error)
+      setAvailableUsers([])
+    } finally {
+      setLoadingUsers(false)
+    }
+  }
+
+  // Fetch users when component mounts or department changes
+  useEffect(() => {
+    fetchUsersByDepartment(ticket.department)
+  }, [ticket.department])
 
   const handleSave = async () => {
     const supabase = createClient()
@@ -41,6 +84,17 @@ export function EditTicketForm({ ticket: initialTicket }: EditTicketFormProps) {
     setError(null)
 
     try {
+      // Get current user for activity logging
+      const { data: { user } } = await supabase.auth.getUser()
+
+      // Get current ticket data to check for assignment changes
+      const { data: currentTicket } = await supabase
+        .from("audit_tickets")
+        .select("assigned_to, assigned_profile:assigned_to(full_name)")
+        .eq("id", ticket.id)
+        .single()
+
+      // Update the ticket
       const { error } = await supabase
         .from("audit_tickets")
         .update({
@@ -50,10 +104,32 @@ export function EditTicketForm({ ticket: initialTicket }: EditTicketFormProps) {
           priority: ticket.priority,
           status: ticket.status,
           due_date: ticket.due_date,
+          assigned_to: ticket.assigned_to,
         })
         .eq("id", ticket.id)
 
       if (error) throw error
+
+      // Log assignment change activity if assigned_to changed
+      if (user && currentTicket && currentTicket.assigned_to !== ticket.assigned_to) {
+        const oldAssigned = currentTicket.assigned_profile?.full_name || "Unassigned"
+        const newAssignedUser = availableUsers.find(u => u.id === ticket.assigned_to)
+        const newAssigned = newAssignedUser?.full_name || "Unassigned"
+
+        try {
+          await supabase.from("ticket_activities").insert({
+            ticket_id: ticket.id,
+            user_id: user.id,
+            activity_type: "assignment_change",
+            content: `Assignment changed from ${oldAssigned} to ${newAssigned}`,
+            old_value: oldAssigned,
+            new_value: newAssigned,
+          })
+        } catch (activityError) {
+          console.error("Could not log assignment change:", activityError)
+          // Continue even if activity logging fails
+        }
+      }
 
       router.push(`/tickets/${ticket.id}`)
       router.refresh()
@@ -65,10 +141,6 @@ export function EditTicketForm({ ticket: initialTicket }: EditTicketFormProps) {
     }
   }
 
-
-  const handleDepartmentSuggestion = (suggestedDepartment: string) => {
-    setTicket({ ...ticket, department: suggestedDepartment })
-  }
 
   return (
     <div className="space-y-6">
@@ -121,6 +193,52 @@ export function EditTicketForm({ ticket: initialTicket }: EditTicketFormProps) {
                   <SelectItem value="General">General</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="assigned_to" className="flex items-center gap-2">
+                Assigned To
+                {availableUsers.length > 0 && (
+                  <span className="text-xs text-muted-foreground font-normal">
+                    ({availableUsers.length} available)
+                  </span>
+                )}
+              </Label>
+              <Select
+                value={ticket.assigned_to || "unassigned"}
+                onValueChange={(value) => setTicket({ ...ticket, assigned_to: value === "unassigned" ? null : value })}
+                disabled={loadingUsers || (ticket.department !== "General" && availableUsers.length === 0)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={loadingUsers ? "Loading users..." : "Select user"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unassigned">
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      Unassigned
+                    </div>
+                  </SelectItem>
+                  {availableUsers.length === 0 && ticket.department !== "General" && !loadingUsers && (
+                    <SelectItem value="no-users" disabled>
+                      No users in this department
+                    </SelectItem>
+                  )}
+                  {availableUsers.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4" />
+                        {user.full_name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {ticket.department !== "General" && availableUsers.length === 0 && !loadingUsers && (
+                <p className="text-xs text-muted-foreground">
+                  No users found in the {ticket.department} department
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -224,13 +342,6 @@ export function EditTicketForm({ ticket: initialTicket }: EditTicketFormProps) {
           </div>
         </CardContent>
       </Card>
-
-      <DepartmentSuggestion
-        title={ticket.title || ""}
-        description={ticket.description || ""}
-        currentDepartment={ticket.department || "General"}
-        onSuggestionAccepted={handleDepartmentSuggestion}
-      />
     </div>
   )
 }
