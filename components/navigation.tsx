@@ -15,12 +15,10 @@ import Link from "next/link"
 import { signOut as serverSignOut } from "@/app/auth/actions"
 
 export function Navigation() {
-  const { user, profile, hasRole, signOut: clientSignOut } = useAuth()
+  const { user, profile, hasRole } = useAuth()
 
   const handleSignOut = async () => {
-    // First clear client-side state
-    await clientSignOut()
-    // Then call server action to clear server-side session and redirect
+    // Directly call server action - it will handle everything and redirect
     await serverSignOut()
   }
 

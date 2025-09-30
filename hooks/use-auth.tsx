@@ -56,7 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signOut = async () => {
-    await supabase.auth.signOut()
+    // Just clear local state - don't call Supabase (it may timeout)
     setUser(null)
     setProfile(null)
   }

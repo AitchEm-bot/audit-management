@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -47,6 +46,7 @@ export function EditTicketForm({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [availableUsers, setAvailableUsers] = useState<UserProfile[]>(initialAvailableUsers)
+  const [loadingUsers, setLoadingUsers] = useState(false)
   const [showCloseDialog, setShowCloseDialog] = useState(false)
   const [commentCount, setCommentCount] = useState(initialCommentCount)
   const router = useRouter()
@@ -60,6 +60,47 @@ export function EditTicketForm({
   useEffect(() => {
     setCommentCount(initialCommentCount)
   }, [initialCommentCount])
+
+  // Fetch users when department changes
+  useEffect(() => {
+    const fetchUsersForDepartment = async () => {
+      if (!ticket.department || ticket.department === "General") {
+        setAvailableUsers([])
+        return
+      }
+
+      setLoadingUsers(true)
+      try {
+        const response = await fetch(`/api/users?department=${encodeURIComponent(ticket.department)}`)
+
+        if (!response.ok) {
+          console.error("Error fetching users:", response.statusText)
+          setAvailableUsers([])
+        } else {
+          const users = await response.json()
+          setAvailableUsers(users || [])
+
+          // Check if currently assigned user is in the new department
+          if (ticket.assigned_to) {
+            const assignedUserInDepartment = users?.find(
+              (u: UserProfile) => u.id === ticket.assigned_to
+            )
+            if (!assignedUserInDepartment) {
+              // Clear assignment if user not in new department
+              setTicket({ ...ticket, assigned_to: null })
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching users:", error)
+        setAvailableUsers([])
+      } finally {
+        setLoadingUsers(false)
+      }
+    }
+
+    fetchUsersForDepartment()
+  }, [ticket.department])
 
   const handleSave = async () => {
     setSaving(true)
@@ -170,18 +211,23 @@ export function EditTicketForm({
             <div className="space-y-2">
               <Label htmlFor="assigned_to" className="flex items-center gap-2">
                 Assigned To
-                {availableUsers.length > 0 && (
+                {loadingUsers ? (
+                  <span className="text-xs text-muted-foreground font-normal">
+                    (loading...)
+                  </span>
+                ) : availableUsers.length > 0 ? (
                   <span className="text-xs text-muted-foreground font-normal">
                     ({availableUsers.length} available)
                   </span>
-                )}
+                ) : null}
               </Label>
               <Select
                 value={ticket.assigned_to || "unassigned"}
                 onValueChange={(value) => setTicket({ ...ticket, assigned_to: value === "unassigned" ? null : value })}
+                disabled={loadingUsers}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select user" />
+                  <SelectValue placeholder={loadingUsers ? "Loading users..." : "Select user"} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="unassigned">
@@ -190,7 +236,7 @@ export function EditTicketForm({
                       Unassigned
                     </div>
                   </SelectItem>
-                  {availableUsers.length === 0 && ticket.department !== "General" && (
+                  {availableUsers.length === 0 && ticket.department !== "General" && !loadingUsers && (
                     <SelectItem value="no-users" disabled>
                       No users in this department
                     </SelectItem>
@@ -205,7 +251,7 @@ export function EditTicketForm({
                   ))}
                 </SelectContent>
               </Select>
-              {ticket.department !== "General" && availableUsers.length === 0 && (
+              {ticket.department !== "General" && availableUsers.length === 0 && !loadingUsers && (
                 <p className="text-xs text-muted-foreground">
                   No users found in the {ticket.department} department
                 </p>
