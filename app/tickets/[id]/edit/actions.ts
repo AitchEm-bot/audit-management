@@ -4,6 +4,52 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
+export async function updateTicket(ticketId: string, updates: {
+  title: string
+  description: string
+  department: string
+  priority: string
+  status: string
+  due_date: string | null
+  assigned_to: string | null
+}) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { error: 'Not authenticated' }
+  }
+
+  try {
+    // Get current ticket to check status change
+    const { data: currentTicket } = await supabase
+      .from("audit_tickets")
+      .select("status")
+      .eq("id", ticketId)
+      .single()
+
+    // Check if trying to close - return flag to show dialog
+    if (updates.status === "closed" && currentTicket?.status !== "closed") {
+      return { requiresCloseDialog: true }
+    }
+
+    // Update ticket
+    const { error } = await supabase
+      .from("audit_tickets")
+      .update(updates)
+      .eq("id", ticketId)
+
+    if (error) {
+      return { error: 'Failed to update ticket' }
+    }
+
+    revalidatePath(`/tickets/${ticketId}`)
+    return { success: true }
+  } catch (error) {
+    return { error: 'An unexpected error occurred' }
+  }
+}
+
 export async function deleteTicket(ticketId: string) {
   console.log('🗑️ deleteTicket server action called with ticketId:', ticketId)
 

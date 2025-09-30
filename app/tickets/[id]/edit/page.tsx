@@ -29,10 +29,42 @@ export default async function EditTicketPage({ params }: EditTicketPageProps) {
     redirect("/tickets")
   }
 
+  // Fetch users by department server-side
+  let availableUsers = []
+  if (ticket.department && ticket.department !== "General") {
+    const { data: users, error: usersError } = await supabase
+      .from("profiles")
+      .select("id, full_name, email, department")
+      .eq("department", ticket.department)
+      .order("full_name", { ascending: true })
+
+    if (!usersError && users) {
+      availableUsers = users
+    }
+  }
+
+  // Fetch comment count for the close dialog
+  let commentCount = 0
+  try {
+    const { data: comments } = await supabase
+      .from("ticket_activities")
+      .select("id")
+      .eq("ticket_id", id)
+      .eq("activity_type", "comment")
+
+    commentCount = comments?.length || 0
+  } catch (error) {
+    console.error("Error fetching comment count:", error)
+  }
+
   return (
     <div className="container mx-auto py-8">
       <div className="max-w-4xl mx-auto">
-        <EditTicketForm ticket={ticket} />
+        <EditTicketForm
+          ticket={ticket}
+          availableUsers={availableUsers}
+          commentCount={commentCount}
+        />
       </div>
     </div>
   )

@@ -9,9 +9,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { deleteTicket } from "@/app/tickets/[id]/edit/actions"
+import { deleteTicket, updateTicket } from "@/app/tickets/[id]/edit/actions"
 import { Save, ArrowLeft, Trash2, User, Users } from "lucide-react"
 import Link from "next/link"
+import { CloseTicketDialog } from "@/components/close-ticket-dialog"
 
 interface Ticket {
   id: string
@@ -33,105 +34,62 @@ interface UserProfile {
 
 interface EditTicketFormProps {
   ticket: Ticket
+  availableUsers?: UserProfile[]
+  commentCount?: number
 }
 
-export function EditTicketForm({ ticket: initialTicket }: EditTicketFormProps) {
+export function EditTicketForm({
+  ticket: initialTicket,
+  availableUsers: initialAvailableUsers = [],
+  commentCount: initialCommentCount = 0
+}: EditTicketFormProps) {
   const [ticket, setTicket] = useState<Ticket>(initialTicket)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [availableUsers, setAvailableUsers] = useState<UserProfile[]>([])
-  const [loadingUsers, setLoadingUsers] = useState(false)
+  const [availableUsers, setAvailableUsers] = useState<UserProfile[]>(initialAvailableUsers)
+  const [showCloseDialog, setShowCloseDialog] = useState(false)
+  const [commentCount, setCommentCount] = useState(initialCommentCount)
   const router = useRouter()
 
-  // Fetch users by department
-  const fetchUsersByDepartment = async (department: string) => {
-    if (!department || department === "General") {
-      setAvailableUsers([])
-      return
-    }
-
-    setLoadingUsers(true)
-    try {
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, full_name, email")
-        .eq("department", department)
-        .order("full_name", { ascending: true })
-
-      if (error) {
-        console.error("Error fetching users:", error)
-        setAvailableUsers([])
-      } else {
-        setAvailableUsers(data || [])
-      }
-    } catch (error) {
-      console.error("Error fetching users:", error)
-      setAvailableUsers([])
-    } finally {
-      setLoadingUsers(false)
-    }
-  }
-
-  // Fetch users when component mounts or department changes
+  // Update available users when props change
   useEffect(() => {
-    fetchUsersByDepartment(ticket.department)
-  }, [ticket.department])
+    setAvailableUsers(initialAvailableUsers)
+  }, [initialAvailableUsers])
+
+  // Update comment count when props change
+  useEffect(() => {
+    setCommentCount(initialCommentCount)
+  }, [initialCommentCount])
 
   const handleSave = async () => {
-    const supabase = createClient()
     setSaving(true)
     setError(null)
 
     try {
-      // Get current user for activity logging
-      const { data: { user } } = await supabase.auth.getUser()
+      const result = await updateTicket(ticket.id, {
+        title: ticket.title,
+        description: ticket.description,
+        department: ticket.department,
+        priority: ticket.priority,
+        status: ticket.status,
+        due_date: ticket.due_date,
+        assigned_to: ticket.assigned_to,
+      })
 
-      // Get current ticket data to check for assignment changes
-      const { data: currentTicket } = await supabase
-        .from("audit_tickets")
-        .select("assigned_to, assigned_profile:assigned_to(full_name)")
-        .eq("id", ticket.id)
-        .single()
-
-      // Update the ticket
-      const { error } = await supabase
-        .from("audit_tickets")
-        .update({
-          title: ticket.title,
-          description: ticket.description,
-          department: ticket.department,
-          priority: ticket.priority,
-          status: ticket.status,
-          due_date: ticket.due_date,
-          assigned_to: ticket.assigned_to,
-        })
-        .eq("id", ticket.id)
-
-      if (error) throw error
-
-      // Log assignment change activity if assigned_to changed
-      if (user && currentTicket && currentTicket.assigned_to !== ticket.assigned_to) {
-        const oldAssigned = currentTicket.assigned_profile?.full_name || "Unassigned"
-        const newAssignedUser = availableUsers.find(u => u.id === ticket.assigned_to)
-        const newAssigned = newAssignedUser?.full_name || "Unassigned"
-
-        try {
-          await supabase.from("ticket_activities").insert({
-            ticket_id: ticket.id,
-            user_id: user.id,
-            activity_type: "assignment_change",
-            content: `Assignment changed from ${oldAssigned} to ${newAssigned}`,
-            old_value: oldAssigned,
-            new_value: newAssigned,
-          })
-        } catch (activityError) {
-          console.error("Could not log assignment change:", activityError)
-          // Continue even if activity logging fails
-        }
+      if (result?.requiresCloseDialog) {
+        // Show the close dialog instead of saving directly
+        setSaving(false)
+        setShowCloseDialog(true)
+        return
       }
 
-      router.push(`/tickets/${ticket.id}`)
+      if (result?.error) {
+        setError(result.error)
+        return
+      }
+
+      // Success - redirect to ticket page
+      router.push(`/tickets/${ticket.id}?success=Ticket updated successfully`)
       router.refresh()
     } catch (error) {
       console.error("Error saving ticket:", error)
@@ -144,6 +102,20 @@ export function EditTicketForm({ ticket: initialTicket }: EditTicketFormProps) {
 
   return (
     <div className="space-y-6">
+      {/* Close Ticket Dialog */}
+      <CloseTicketDialog
+        open={showCloseDialog}
+        onOpenChange={(open) => {
+          setShowCloseDialog(open)
+          // If dialog is closed without saving, revert status back
+          if (!open && ticket.status === "closed") {
+            router.push(`/tickets/${ticket.id}`)
+          }
+        }}
+        ticketId={ticket.id}
+        commentCount={commentCount}
+      />
+
       <div className="flex items-center gap-4">
         <Button variant="outline" asChild>
           <Link href={`/tickets/${ticket.id}`}>
@@ -207,10 +179,9 @@ export function EditTicketForm({ ticket: initialTicket }: EditTicketFormProps) {
               <Select
                 value={ticket.assigned_to || "unassigned"}
                 onValueChange={(value) => setTicket({ ...ticket, assigned_to: value === "unassigned" ? null : value })}
-                disabled={loadingUsers || (ticket.department !== "General" && availableUsers.length === 0)}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder={loadingUsers ? "Loading users..." : "Select user"} />
+                  <SelectValue placeholder="Select user" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="unassigned">
@@ -219,7 +190,7 @@ export function EditTicketForm({ ticket: initialTicket }: EditTicketFormProps) {
                       Unassigned
                     </div>
                   </SelectItem>
-                  {availableUsers.length === 0 && ticket.department !== "General" && !loadingUsers && (
+                  {availableUsers.length === 0 && ticket.department !== "General" && (
                     <SelectItem value="no-users" disabled>
                       No users in this department
                     </SelectItem>
@@ -234,7 +205,7 @@ export function EditTicketForm({ ticket: initialTicket }: EditTicketFormProps) {
                   ))}
                 </SelectContent>
               </Select>
-              {ticket.department !== "General" && availableUsers.length === 0 && !loadingUsers && (
+              {ticket.department !== "General" && availableUsers.length === 0 && (
                 <p className="text-xs text-muted-foreground">
                   No users found in the {ticket.department} department
                 </p>

@@ -30,11 +30,22 @@ export default async function TicketPage({ params }: TicketPageProps) {
     if (error) {
       console.error("Error fetching ticket server-side:", error)
     } else {
-      // Add fallback profile data since we're not joining
+      // Fetch assigned user profile if ticket is assigned
+      let assignedProfile = null
+      if (data.assigned_to) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name, email")
+          .eq("id", data.assigned_to)
+          .single()
+
+        assignedProfile = profile
+      }
+
       ticket = {
         ...data,
         profiles: { full_name: "Unknown User", email: "" },
-        assigned_profile: null
+        assigned_profile: assignedProfile
       }
       console.log("Fetched ticket server-side:", ticket?.title)
     }
@@ -47,11 +58,25 @@ export default async function TicketPage({ params }: TicketPageProps) {
     redirect("/tickets")
   }
 
+  // Fetch comment count for the close dialog
+  let commentCount = 0
+  try {
+    const { data: comments } = await supabase
+      .from("ticket_activities")
+      .select("id")
+      .eq("ticket_id", id)
+      .eq("activity_type", "comment")
+
+    commentCount = comments?.length || 0
+  } catch (error) {
+    console.error("Error fetching comment count:", error)
+  }
+
   return (
     <div className="container mx-auto py-8">
       <div className="max-w-4xl mx-auto space-y-6">
-        <TicketDetailClient ticket={ticket} />
-        <TicketActivities ticketId={id} />
+        <TicketDetailClient ticket={ticket} commentCount={commentCount} />
+        <TicketActivities ticketId={id} isTicketClosed={ticket.status === 'closed'} />
       </div>
     </div>
   )

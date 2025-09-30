@@ -13,6 +13,7 @@ interface TicketData {
   updated_at: string
   created_by: string
   assigned_to: string | null
+  closing_comment?: string | null
   profiles?: {
     full_name: string
     email: string
@@ -75,12 +76,22 @@ export class ExcelReportGenerator {
 
     // Main tickets worksheet
     const ticketData = filteredTickets.map((ticket) => {
-      // Concatenate comments for this ticket
-      const auditReplies = ticket.audit_comments && ticket.audit_comments.length > 0
-        ? ticket.audit_comments
-            .map(comment => `${comment.profiles?.full_name || 'Unknown'}: ${comment.content || ''}`)
-            .join('\n---\n')
-        : 'No comments'
+      // Determine Audit Reply content:
+      // 1. If ticket is closed and has a closing_comment, use that
+      // 2. Otherwise, concatenate all comments
+      let auditReplies: string
+
+      if (ticket.status === 'closed' && ticket.closing_comment) {
+        // Use closing comment for closed tickets
+        auditReplies = ticket.closing_comment
+      } else if (ticket.audit_comments && ticket.audit_comments.length > 0) {
+        // Concatenate comments for non-closed tickets or closed tickets without closing comment
+        auditReplies = ticket.audit_comments
+          .map(comment => `${comment.profiles?.full_name || 'Unknown'}: ${comment.content || ''}`)
+          .join('\n---\n')
+      } else {
+        auditReplies = 'No comments'
+      }
 
       return {
         "Ticket Number": ticket.ticket_number,

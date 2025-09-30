@@ -27,6 +27,7 @@ import {
 import { format } from "date-fns"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { CloseTicketDialog } from "@/components/close-ticket-dialog"
 
 interface Ticket {
   id: string
@@ -102,6 +103,7 @@ export function TicketDetail({ ticketId }: TicketDetailProps) {
   const [loading, setLoading] = useState(true)
   const [submittingComment, setSubmittingComment] = useState(false)
   const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null)
+  const [showCloseDialog, setShowCloseDialog] = useState(false)
 
   useEffect(() => {
     fetchTicket()
@@ -297,6 +299,12 @@ export function TicketDetail({ ticketId }: TicketDetailProps) {
   }
 
   const updateTicketStatus = async (newStatus: string) => {
+    // If trying to close the ticket, show the dialog instead
+    if (newStatus === "closed") {
+      setShowCloseDialog(true)
+      return
+    }
+
     const supabase = createClient()
 
     try {
@@ -408,8 +416,19 @@ export function TicketDetail({ ticketId }: TicketDetailProps) {
     )
   }
 
+  // Get the count of comment-type activities for the dialog
+  const commentCount = activities.filter(a => a.activity_type === "comment").length
+
   return (
     <div className="space-y-6">
+      {/* Close Ticket Dialog */}
+      <CloseTicketDialog
+        open={showCloseDialog}
+        onOpenChange={setShowCloseDialog}
+        ticketId={ticketId}
+        commentCount={commentCount}
+      />
+
       {/* Header with back button */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="sm" onClick={() => router.back()}>

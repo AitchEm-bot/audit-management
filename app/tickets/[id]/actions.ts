@@ -226,3 +226,80 @@ export async function updateTicketStatus(ticketId: string, newStatus: string) {
     return { error: 'Failed to update ticket status' }
   }
 }
+
+export async function closeTicketWithComment(ticketId: string, closingComment: string) {
+  const supabase = await createClient()
+
+  // Check if user is authenticated
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { error: 'Not authenticated' }
+  }
+
+  if (!closingComment || closingComment.trim().length < 10) {
+    return { error: 'Closing comment must be at least 10 characters' }
+  }
+
+  try {
+    // First get the current status
+    const { data: currentTicket } = await supabase
+      .from('audit_tickets')
+      .select('status')
+      .eq('id', ticketId)
+      .single()
+
+    // Update the ticket status to closed and save closing comment
+    const { error } = await supabase
+      .from('audit_tickets')
+      .update({
+        status: 'closed',
+        closing_comment: closingComment.trim()
+      })
+      .eq('id', ticketId)
+
+    if (error) {
+      console.error('Error closing ticket:', error)
+      return { error: 'Failed to close ticket' }
+    }
+
+    // Add closing comment as a regular comment so it's visible in the thread
+    try {
+      await supabase.from('ticket_activities').insert({
+        ticket_id: ticketId,
+        user_id: user.id,
+        activity_type: 'comment',
+        content: closingComment.trim(),
+      })
+    } catch (activityError) {
+      console.error('Could not add closing comment to thread:', activityError)
+    }
+
+    // Log the ticket closed activity
+    try {
+      await supabase.from('ticket_activities').insert({
+        ticket_id: ticketId,
+        user_id: user.id,
+        activity_type: 'status_change',
+        content: `Status changed from ${currentTicket?.status} to closed`,
+        old_value: currentTicket?.status,
+        new_value: 'closed',
+      })
+    } catch (activityError) {
+      console.error('Could not log status change activity:', activityError)
+      // Continue even if activity logging fails
+    }
+
+    console.log('Ticket closed successfully with closing comment')
+
+    // Revalidate the page to show the changes
+    revalidatePath(`/tickets/${ticketId}`)
+
+    return { success: true }
+  } catch (error) {
+    console.error('Server error closing ticket:', error)
+    return { error: 'Failed to close ticket' }
+  }
+}

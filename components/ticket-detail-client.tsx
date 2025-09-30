@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useFormStatus } from "react-dom"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -22,6 +22,8 @@ import { format } from "date-fns"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { addComment, updateTicketStatus as updateTicketStatusAction } from "@/app/tickets/[id]/actions"
+import { CloseTicketDialog } from "@/components/close-ticket-dialog"
+import { createClient } from "@/lib/supabase/client"
 
 interface Ticket {
   id: string
@@ -48,6 +50,7 @@ interface Ticket {
 
 interface TicketDetailClientProps {
   ticket: Ticket
+  commentCount?: number
 }
 
 const priorityColors = {
@@ -79,16 +82,30 @@ function CommentSubmitButton() {
   )
 }
 
-export function TicketDetailClient({ ticket }: TicketDetailClientProps) {
+export function TicketDetailClient({ ticket, commentCount: initialCommentCount = 0 }: TicketDetailClientProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const [showCloseDialog, setShowCloseDialog] = useState(false)
+  const [commentCount, setCommentCount] = useState(initialCommentCount)
   const [statusUpdating, setStatusUpdating] = useState(false)
 
   // Get success/error messages from URL
   const successMessage = searchParams.get('success')
   const errorMessage = searchParams.get('error')
 
+  // Update comment count when prop changes
+  useEffect(() => {
+    setCommentCount(initialCommentCount)
+  }, [initialCommentCount])
+
   const updateTicketStatus = async (newStatus: string) => {
+    // If trying to close the ticket, show the dialog instead
+    if (newStatus === "closed") {
+      console.log('Status changed to closed, opening dialog for ticket:', ticket.id)
+      setShowCloseDialog(true)
+      return
+    }
+
     setStatusUpdating(true)
     try {
       const result = await updateTicketStatusAction(ticket.id, newStatus)
@@ -107,6 +124,14 @@ export function TicketDetailClient({ ticket }: TicketDetailClientProps) {
 
   return (
     <div className="space-y-6">
+      {/* Close Ticket Dialog */}
+      <CloseTicketDialog
+        open={showCloseDialog}
+        onOpenChange={setShowCloseDialog}
+        ticketId={ticket.id}
+        commentCount={commentCount}
+      />
+
       {/* Header with back button */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="sm" onClick={() => router.back()}>
@@ -158,27 +183,39 @@ export function TicketDetailClient({ ticket }: TicketDetailClientProps) {
           </Card>
 
           {/* Add Comment Form */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Add Comment</CardTitle>
-              <CardDescription>
-                Share updates, ask questions, or provide additional information
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form action={addComment.bind(null, ticket.id)} className="space-y-4">
-                <Textarea
-                  name="content"
-                  placeholder="Write your comment here..."
-                  className="min-h-[100px]"
-                  required
-                />
-                <div className="flex justify-end">
-                  <CommentSubmitButton />
-                </div>
-              </form>
-            </CardContent>
-          </Card>
+          {ticket.status !== 'closed' && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Add Comment</CardTitle>
+                <CardDescription>
+                  Share updates, ask questions, or provide additional information
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form action={addComment.bind(null, ticket.id)} className="space-y-4">
+                  <Textarea
+                    name="content"
+                    placeholder="Write your comment here..."
+                    className="min-h-[100px]"
+                    required
+                  />
+                  <div className="flex justify-end">
+                    <CommentSubmitButton />
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          )}
+          {ticket.status === 'closed' && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Comments Locked</CardTitle>
+                <CardDescription>
+                  This ticket is closed. Comments are locked and can no longer be edited or deleted.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          )}
         </div>
 
         {/* Sidebar */}

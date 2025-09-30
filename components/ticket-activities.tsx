@@ -18,6 +18,7 @@ interface TicketActivity {
 
 interface TicketActivitiesProps {
   ticketId: string
+  isTicketClosed?: boolean
 }
 
 async function fetchActivities(ticketId: string): Promise<TicketActivity[]> {
@@ -67,7 +68,7 @@ async function fetchActivities(ticketId: string): Promise<TicketActivity[]> {
   }
 }
 
-export default async function TicketActivities({ ticketId }: TicketActivitiesProps) {
+export default async function TicketActivities({ ticketId, isTicketClosed = false }: TicketActivitiesProps) {
   const supabase = await createClient()
   const activities = await fetchActivities(ticketId)
 
@@ -80,6 +81,7 @@ export default async function TicketActivities({ ticketId }: TicketActivitiesPro
       activities={activities}
       currentUserId={currentUserId}
       ticketId={ticketId}
+      isTicketClosed={isTicketClosed}
     />
   )
 }

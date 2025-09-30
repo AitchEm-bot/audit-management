@@ -39,6 +39,7 @@ interface TicketActivitiesClientProps {
   activities: TicketActivity[]
   currentUserId: string | null
   ticketId: string
+  isTicketClosed?: boolean
 }
 
 function getActivityIcon(activityType: string) {
@@ -83,6 +84,7 @@ export default function TicketActivitiesClient({
   activities,
   currentUserId,
   ticketId,
+  isTicketClosed = false,
 }: TicketActivitiesClientProps) {
   const router = useRouter()
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -174,7 +176,7 @@ export default function TicketActivitiesClient({
         <CardContent className="space-y-4">
           {activities.map((activity, index) => {
             const isEditing = editingId === activity.id
-            const canModify = currentUserId === activity.user_id && activity.activity_type === "comment"
+            const canModify = !isTicketClosed && currentUserId === activity.user_id && activity.activity_type === "comment"
 
             return (
               <div key={activity.id} className="flex gap-3">
