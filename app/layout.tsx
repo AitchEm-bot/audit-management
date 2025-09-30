@@ -4,6 +4,7 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { AuthProvider } from "@/hooks/use-auth"
 import { Navigation } from "@/components/navigation"
+import { NavigationLoading } from "@/components/navigation-loading"
 
 const inter = Inter({
   variable: "--font-inter",
@@ -25,6 +26,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${inter.variable} font-sans antialiased`}>
         <AuthProvider>
+          <NavigationLoading />
           <Navigation />
           <main>{children}</main>
         </AuthProvider>

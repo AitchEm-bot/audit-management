@@ -12,15 +12,16 @@ import {
 import { useAuth } from "@/hooks/use-auth"
 import { User, Settings, LogOut, Shield } from "lucide-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { signOut as serverSignOut } from "@/app/auth/actions"
 
 export function Navigation() {
-  const { user, profile, signOut, hasRole } = useAuth()
-  const router = useRouter()
+  const { user, profile, hasRole, signOut: clientSignOut } = useAuth()
 
   const handleSignOut = async () => {
-    await signOut()
-    router.push("/auth/login")
+    // First clear client-side state
+    await clientSignOut()
+    // Then call server action to clear server-side session and redirect
+    await serverSignOut()
   }
 
   if (!user) {
