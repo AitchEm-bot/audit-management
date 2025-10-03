@@ -61,7 +61,7 @@ export function TicketFilters({ departments }: TicketFiltersProps) {
         </div>
         <div className="flex gap-2">
           <Select
-            value={searchParams.get("status") || "active"}
+            value={searchParams.get("status") || "all"}
             onValueChange={(value) => updateFilters("status", value)}
             disabled={isPending}
           >
@@ -69,8 +69,8 @@ export function TicketFilters({ departments }: TicketFiltersProps) {
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="active">Active</SelectItem>
               <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
               <SelectItem value="open">Open</SelectItem>
               <SelectItem value="in_progress">In Progress</SelectItem>
               <SelectItem value="resolved">Resolved</SelectItem>
