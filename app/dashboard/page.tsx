@@ -16,6 +16,15 @@ export default async function DashboardPage() {
     redirect("/auth/login")
   }
 
+  // Fetch user profile
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("full_name, email")
+    .eq("id", user.id)
+    .single()
+
+  const displayName = profile?.full_name || profile?.email?.split('@')[0] || 'there'
+
   // Use full query server-side since server-side queries work fine
   let stats = null
   try {
@@ -104,9 +113,9 @@ export default async function DashboardPage() {
     <div className="container mx-auto py-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold">Audit Management Dashboard</h1>
+          <h1 className="text-3xl font-bold">Hey {displayName} 👋</h1>
           <p className="text-muted-foreground mt-2">
-            Welcome back! Here's an overview of your audit management system.
+            Here's an overview of your audit management system.
           </p>
         </div>
 
