@@ -13,7 +13,8 @@
       "Bash(python3:*)",
       "Bash(pip3 install:*)",
       "Bash(source:*)",
-      "Bash(uv pip install:*)"
+      "Bash(uv pip install:*)",
+      "Bash(NEXT_PUBLIC_SUPABASE_URL=https://odzcdegrcheskzxitnnk.supabase.co NEXT_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kemNkZWdyY2hlc2t6eGl0bm5rIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1OTUwMTcxNiwiZXhwIjoyMDc1MDc3NzE2fQ.BRmkG86Prnls6X_6CDF6742OY100ym5HqTStsfqaZWw node setup_database.mjs)"
     ],
     "deny": [],
     "ask": []

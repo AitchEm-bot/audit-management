@@ -31,7 +31,7 @@ export async function middleware(request: NextRequest) {
   supabaseResponse.headers.set("X-XSS-Protection", "1; mode=block")
   supabaseResponse.headers.set(
     "Content-Security-Policy",
-    "default-src 'self' https://tepugapnfaqmatgsahfy.supabase.co; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://tepugapnfaqmatgsahfy.supabase.co",
+    `default-src 'self' ${process.env.NEXT_PUBLIC_SUPABASE_URL}; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' ${process.env.NEXT_PUBLIC_SUPABASE_URL}`,
   )
 
   const {
