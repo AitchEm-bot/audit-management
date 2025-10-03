@@ -1,9 +1,12 @@
+"use client"
+
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Calendar, ChevronLeft, ChevronRight, Edit, Eye, User } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { format } from "date-fns"
 import { TicketFilters } from "./ticket-filters"
 import { TicketPagination } from "./ticket-pagination"
@@ -54,6 +57,17 @@ interface TicketListProps {
 }
 
 export function TicketList({ tickets, departments, totalCount, totalPages, currentPage }: TicketListProps) {
+  const router = useRouter()
+
+  const handleRowClick = (ticketId: string, e: React.MouseEvent) => {
+    // Don't navigate if clicking on buttons or links
+    const target = e.target as HTMLElement
+    if (target.closest('button') || target.closest('a')) {
+      return
+    }
+    router.push(`/tickets/${ticketId}`)
+  }
+
   return (
     <div className="space-y-6">
       <Card>
@@ -87,7 +101,11 @@ export function TicketList({ tickets, departments, totalCount, totalPages, curre
                   </TableRow>
                 ) : (
                   tickets.map((ticket) => (
-                    <TableRow key={ticket.id} className="cursor-pointer hover:bg-muted/50 transition-colors">
+                    <TableRow
+                      key={ticket.id}
+                      className="cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={(e) => handleRowClick(ticket.id, e)}
+                    >
                       <TableCell className="font-mono text-sm">
                         <Link href={`/tickets/${ticket.id}`} className="block w-full">
                           {ticket.ticket_number}
