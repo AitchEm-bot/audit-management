@@ -77,19 +77,19 @@ npm install
 ```
 
 3. Set up environment variables:
-```bash
-cp .env.example .env.local
-```
 
-Add your Supabase credentials:
+Create a `.env` file in the project root:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+NEXT_SERVICE_ROLE_KEY=your_service_role_key
 ```
 
-4. Set up the database schema:
-   - Run the SQL script in `SAFE_SCHEMA_UPDATE.sql` in your Supabase dashboard
-   - This creates the necessary tables, policies, and indexes
+4. Set up the database:
+   - Go to your Supabase Dashboard → SQL Editor
+   - Open and copy the contents of `COMPLETE_DB_SETUP.sql`
+   - Paste into the SQL Editor and click "Run"
+   - This single script creates all tables, triggers, policies, and materialized views
 
 5. Start the development server:
 ```bash
@@ -102,9 +102,16 @@ Visit `http://localhost:3000` to access the application.
 
 ### Core Tables
 
+- **profiles**: User profiles with roles and department assignments
 - **audit_tickets**: Main ticket entity with audit-specific fields
-- **audit_comments**: Comments and timeline entries
-- **audit_attachments**: File attachments and metadata
+- **ticket_activities**: Timeline of all ticket changes, comments, and activities
+- **ticket_comment_attachments**: File attachments for comments
+- **audit_logs**: Security audit trail for admin access
+
+### Materialized Views
+
+- **mv_department_stats**: Aggregated statistics by department
+- **mv_daily_metrics**: Daily ticket creation and closure metrics
 
 ### Key Fields
 
@@ -112,6 +119,7 @@ The system supports comprehensive audit data including:
 - Standard ticket fields (title, description, status, priority)
 - Audit-specific fields (recommendations, management_response, risk_level)
 - Compliance tracking (finding_status, responsibility, followup)
+- Approval workflow (requires_approval, approved_by, approved_at)
 - Management updates and responses
 
 ## CSV Import Format
@@ -153,14 +161,14 @@ The system supports governmental audit report formats with these columns:
 ### Key Directories
 
 ```
-├── app/                 # Next.js app router pages
-├── components/          # Reusable React components
-│   ├── ui/             # shadcn/ui components
-│   ├── csv-upload.tsx  # CSV import functionality
+├── app/                       # Next.js app router pages
+├── components/                # Reusable React components
+│   ├── ui/                   # shadcn/ui components
+│   ├── csv-upload.tsx        # CSV import functionality
 │   └── dashboard-metrics.tsx # Analytics dashboard
-├── lib/                # Utility functions and configs
-│   └── supabase/       # Database client setup
-└── SAFE_SCHEMA_UPDATE.sql # Database schema
+├── lib/                      # Utility functions and configs
+│   └── supabase/             # Database client setup
+└── COMPLETE_DB_SETUP.sql     # Complete database schema setup
 ```
 
 ## Contributing
