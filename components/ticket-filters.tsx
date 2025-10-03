@@ -21,7 +21,7 @@ export function TicketFilters({ departments }: TicketFiltersProps) {
   const updateFilters = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString())
 
-    if (value && value !== "all") {
+    if (value) {
       params.set(key, value)
     } else {
       params.delete(key)

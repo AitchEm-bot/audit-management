@@ -31,10 +31,10 @@ export default async function TicketsPage({ searchParams }: PageProps) {
 
   // Build filters from URL params
   // Default to "active" (exclude resolved/closed) if no status filter is set
-  const statusParam = searchParams?.status || "active"
+  const statusParam = searchParams?.status ?? "active"
 
   const filters = {
-    status: statusParam !== "all" ? statusParam : undefined,
+    status: statusParam === "all" ? undefined : statusParam,
     priority: searchParams?.priority && searchParams.priority !== "all" ? searchParams.priority : undefined,
     department: searchParams?.department && searchParams.department !== "all" ? searchParams.department : undefined,
     searchTerm: searchParams?.search || undefined,
