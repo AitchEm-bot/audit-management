@@ -59,6 +59,7 @@ CREATE TABLE public.audit_tickets (
   approved_by UUID REFERENCES auth.users(id),
   approved_at TIMESTAMP WITH TIME ZONE,
   resolution_comment TEXT,
+  closing_comment TEXT,
 
   -- Standard fields
   assigned_to UUID REFERENCES auth.users(id),

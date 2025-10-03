@@ -120,6 +120,7 @@ The system supports comprehensive audit data including:
 - Audit-specific fields (recommendations, management_response, risk_level)
 - Compliance tracking (finding_status, responsibility, followup)
 - Approval workflow (requires_approval, approved_by, approved_at)
+- Resolution tracking (resolution_comment, closing_comment)
 - Management updates and responses
 
 ## CSV Import Format
