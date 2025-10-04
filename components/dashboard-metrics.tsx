@@ -26,12 +26,14 @@ interface TicketStats {
   overdue: number
   departments: { [key: string]: number }
   recentActivity: number
+  recent_7_days?: number
 }
 
 interface ChartData {
   name: string
   value: number
   color?: string
+  [key: string]: any
 }
 
 const PRIORITY_COLORS = {
@@ -55,6 +57,7 @@ interface DashboardMetricsProps {
 export function DashboardMetrics({ initialStats }: DashboardMetricsProps) {
   const { locale } = useLanguage()
   const { t } = useTranslation(locale)
+  const isRTL = locale === 'ar'
   const [stats, setStats] = useState<TicketStats>(
     initialStats || {
       total: 0,
@@ -219,6 +222,62 @@ export function DashboardMetrics({ initialStats }: DashboardMetricsProps) {
     name: translateDepartment(name, t),
     value,
   }))
+
+  // Custom tick component for wrapping long department names
+  const CustomXAxisTick = ({ x, y, payload }: any) => {
+    const words = payload.value.split(' ')
+    const maxCharsPerLine = isRTL ? 12 : 10
+
+    // If text is short enough, render as single line
+    if (payload.value.length <= maxCharsPerLine) {
+      return (
+        <g transform={`translate(${x},${y})`}>
+          <text
+            x={0}
+            y={0}
+            dy={16}
+            textAnchor="end"
+            fill="#666"
+            fontSize={11}
+            transform="rotate(-45)"
+          >
+            {payload.value}
+          </text>
+        </g>
+      )
+    }
+
+    // Split into two lines
+    let firstLine = ''
+    let secondLine = ''
+    let currentLength = 0
+
+    for (let i = 0; i < words.length; i++) {
+      if (currentLength + words[i].length <= maxCharsPerLine || firstLine === '') {
+        firstLine += (firstLine ? ' ' : '') + words[i]
+        currentLength += words[i].length + 1
+      } else {
+        secondLine = words.slice(i).join(' ')
+        break
+      }
+    }
+
+    return (
+      <g transform={`translate(${x},${y})`}>
+        <text
+          x={0}
+          y={0}
+          textAnchor="end"
+          fill="#666"
+          fontSize={11}
+          transform="rotate(-45)"
+        >
+          <tspan x={-20} dy={16}>{firstLine}</tspan>
+          {secondLine && <tspan x={-30} dy="1.2em">{secondLine}</tspan>}
+        </text>
+      </g>
+    )
+  }
 
   const completionRate = stats.total > 0 ? ((stats.resolved + stats.closed) / stats.total) * 100 : 0
 
@@ -403,7 +462,8 @@ export function DashboardMetrics({ initialStats }: DashboardMetricsProps) {
                   align="right"
                   layout="vertical"
                   iconType="circle"
-                  wrapperStyle={{ paddingLeft: '40px' }}
+                  wrapperStyle={{ paddingLeft: '20px' }}
+                  formatter={(value) => `  ${value}`}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -420,7 +480,7 @@ export function DashboardMetrics({ initialStats }: DashboardMetricsProps) {
               <BarChart data={priorityData} margin={{ top: 20, right: 30, left: 40, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} tickMargin={isRTL ? 15 : 5} />
                 <Tooltip />
                 <Bar dataKey="value" fill="#8884d8">
                   {priorityData.map((entry, index) => (
@@ -447,15 +507,14 @@ export function DashboardMetrics({ initialStats }: DashboardMetricsProps) {
             <ResponsiveContainer width="100%" height={350}>
               <BarChart
                 data={departmentData}
-                margin={{ top: 20, right: 30, left: 40, bottom: 60 }}
+                margin={{ top: 20, right: 30, left: 40, bottom: 40 }}
               >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
                   dataKey="name"
-                  tick={{ fontSize: 11, angle: -45, textAnchor: 'end' }}
-                  height={80}
+                  tick={<CustomXAxisTick />}
+                  height={50}
                   interval={0}
-                  tickFormatter={(value) => value.length > 18 ? `${value.substring(0, 15)}...` : value}
                 />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip formatter={(value, name) => [`${value} ${t("common.allAuditTickets")}`, `${t("tickets.department")}: ${name}`]} />
