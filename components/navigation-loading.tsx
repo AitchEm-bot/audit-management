@@ -14,15 +14,33 @@ export function NavigationLoading() {
   }, [pathname, searchParams])
 
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout | null = null
+
     // Intercept link clicks to show loading
     const handleClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement
       const link = target.closest('a')
 
+      // Only trigger loading for actual anchor tags with href
       if (link && link.href && !link.href.startsWith('mailto:') && !link.href.startsWith('tel:')) {
+        // Ignore blob URLs (file downloads) and data URLs
+        if (link.href.startsWith('blob:') || link.href.startsWith('data:')) {
+          return
+        }
+
+        // Ignore links with download attribute (downloads, not navigation)
+        if (link.hasAttribute('download')) {
+          return
+        }
+
         const url = new URL(link.href)
         if (url.origin === window.location.origin && url.pathname !== pathname) {
           setIsNavigating(true)
+
+          // Safety timeout: auto-hide spinner after 10 seconds if navigation didn't complete
+          timeoutId = setTimeout(() => {
+            setIsNavigating(false)
+          }, 10000)
         }
       }
     }
@@ -32,6 +50,11 @@ export function NavigationLoading() {
       const form = e.target as HTMLFormElement
       if (form.method !== 'dialog') {
         setIsNavigating(true)
+
+        // Safety timeout: auto-hide spinner after 10 seconds if navigation didn't complete
+        timeoutId = setTimeout(() => {
+          setIsNavigating(false)
+        }, 10000)
       }
     }
 
@@ -41,6 +64,9 @@ export function NavigationLoading() {
     return () => {
       document.removeEventListener('click', handleClick)
       document.removeEventListener('submit', handleSubmit)
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
     }
   }, [pathname])
 

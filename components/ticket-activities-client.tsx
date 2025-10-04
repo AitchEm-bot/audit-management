@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { GitCommit, MessageSquare, Edit, CheckCircle, AlertCircle, FileIcon, Activity, Pencil, Trash2, Save, X, Sparkles } from "lucide-react"
+import { GitCommit, MessageSquare, Edit, CheckCircle, AlertCircle, FileIcon, Activity, Pencil, Trash2, Save, X, Sparkles, MoreVertical } from "lucide-react"
 import { updateComment, deleteComment } from "@/app/tickets/[id]/actions"
 import { useRouter } from "next/navigation"
 import { useLanguage } from "@/contexts/language-context"
@@ -23,6 +23,22 @@ import { useTranslation } from "@/lib/translations"
 import { formatDateTime } from "@/lib/date-utils"
 import { translateStatus, translatePriority } from "@/lib/ticket-utils"
 import { cn } from "@/lib/utils"
+import { AttachmentDisplay } from "@/components/attachment-display"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+
+interface Attachment {
+  id: string
+  filename: string
+  file_path: string
+  file_size: number
+  mime_type: string
+  created_at: string
+}
 
 interface TicketActivity {
   id: string
@@ -37,6 +53,7 @@ interface TicketActivity {
     full_name: string
     email: string
   } | null
+  ticket_comment_attachments?: Attachment[]
 }
 
 interface TicketActivitiesClientProps {
@@ -46,9 +63,14 @@ interface TicketActivitiesClientProps {
   isTicketClosed?: boolean
 }
 
-function getActivityIcon(activityType: string) {
+function getActivityIcon(activityType: string, activity?: TicketActivity) {
   switch (activityType) {
     case "comment":
+      // Use file icon for file-only comments (no text content)
+      if (activity && (!activity.content || activity.content.trim() === '') &&
+          activity.ticket_comment_attachments && activity.ticket_comment_attachments.length > 0) {
+        return <FileIcon className="h-4 w-4" />
+      }
       return <MessageSquare className="h-4 w-4" />
     case "status_change":
       return <CheckCircle className="h-4 w-4" />
@@ -65,9 +87,14 @@ function getActivityIcon(activityType: string) {
   }
 }
 
-function getActivityColor(activityType: string) {
+function getActivityColor(activityType: string, activity?: TicketActivity) {
   switch (activityType) {
     case "comment":
+      // Use gray color for file-only comments (matches file_attachment color)
+      if (activity && (!activity.content || activity.content.trim() === '') &&
+          activity.ticket_comment_attachments && activity.ticket_comment_attachments.length > 0) {
+        return "text-gray-600"
+      }
       return "text-blue-600"
     case "status_change":
       return "text-green-600"
@@ -128,6 +155,10 @@ export default function TicketActivitiesClient({
     }
   }
 
+  const hasAttachments = (activity: TicketActivity) => {
+    return activity.ticket_comment_attachments && activity.ticket_comment_attachments.length > 0
+  }
+
   const confirmDelete = (activityId: string) => {
     setActivityToDelete(activityId)
     setDeleteDialogOpen(true)
@@ -186,11 +217,17 @@ export default function TicketActivitiesClient({
 
             const isRTL = locale === 'ar'
 
+            // Skip standalone file_attachment activities (they're shown inline with comments)
+            // Only show file_attachment if it's a file-only comment (has attachments in metadata)
+            if (activity.activity_type === "file_attachment") {
+              return null
+            }
+
             return (
               <div key={activity.id} className="flex gap-3">
                 <div className="flex flex-col items-center">
-                  <div className={`p-2 rounded-full ${getActivityColor(activity.activity_type)} bg-gray-50`} style={isRTL ? { transform: 'scaleX(-1)' } : undefined}>
-                    {getActivityIcon(activity.activity_type)}
+                  <div className={`p-2 rounded-full ${getActivityColor(activity.activity_type, activity)} bg-gray-50`} style={isRTL ? { transform: 'scaleX(-1)' } : undefined}>
+                    {getActivityIcon(activity.activity_type, activity)}
                   </div>
                   {index < activities.length - 1 && (
                     <div className="w-px h-8 bg-gray-200 mt-2" />
@@ -203,7 +240,9 @@ export default function TicketActivitiesClient({
                       {activity.profiles?.full_name || "Unknown User"}
                     </span>
                     <Badge variant="outline" className="text-xs">
-                      {t(`tickets.activity${activity.activity_type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join('')}`)}
+                      {activity.activity_type === "comment" && (!activity.content || activity.content.trim() === '') && activity.ticket_comment_attachments && activity.ticket_comment_attachments.length > 0
+                        ? t("tickets.activityFileAttachment")
+                        : t(`tickets.activity${activity.activity_type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join('')}`)}
                     </Badge>
                     <span className="text-xs text-gray-500">
                       {formatDateTime(activity.created_at, locale)}
@@ -213,11 +252,45 @@ export default function TicketActivitiesClient({
                   <div className="text-sm text-gray-700">
                     {activity.activity_type === "comment" && (
                       <div className={cn(
-                        "p-3 rounded-lg border",
+                        "p-3 rounded-lg border relative",
                         activity.metadata?.is_closing_comment
                           ? "bg-green-50 border-green-200"
                           : "bg-gray-50"
                       )}>
+                        {/* More menu - positioned absolutely in corner (right for LTR, left for RTL) */}
+                        {canModify && !isEditing && (
+                          <div className={cn(
+                            "absolute top-2",
+                            isRTL ? "left-2" : "right-2"
+                          )}>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0 hover:bg-gray-200"
+                                  title={t("common.more") || "More"}
+                                >
+                                  <MoreVertical className="h-4 w-4 text-gray-500" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align={isRTL ? "start" : "end"}>
+                                <DropdownMenuItem onClick={() => startEdit(activity)}>
+                                  <Pencil className="h-3 w-3 mr-2" />
+                                  {t("common.edit")}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => confirmDelete(activity.id)}
+                                  className="text-red-600 focus:text-red-700"
+                                >
+                                  <Trash2 className="h-3 w-3 mr-2" />
+                                  {t("common.delete")}
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        )}
+
                         {isEditing ? (
                           <div className="space-y-2">
                             <Textarea
@@ -226,11 +299,23 @@ export default function TicketActivitiesClient({
                               className="min-h-[80px]"
                               disabled={isUpdating}
                             />
+
+                            {/* Display attachments in edit mode */}
+                            {activity.ticket_comment_attachments && activity.ticket_comment_attachments.length > 0 && (
+                              <AttachmentDisplay
+                                attachments={activity.ticket_comment_attachments}
+                                canDelete={canModify && !isTicketClosed}
+                                activityId={activity.id}
+                                isEditing={true}
+                                hasContent={editContent && editContent.trim() !== ''}
+                              />
+                            )}
+
                             <div className="flex gap-2">
                               <Button
                                 size="sm"
                                 onClick={() => saveEdit(activity.id)}
-                                disabled={isUpdating || !editContent.trim()}
+                                disabled={isUpdating || (!editContent.trim() && !hasAttachments(activity))}
                               >
                                 <Save className="h-3 w-3 mr-1" />
                                 {t("common.save")}
@@ -262,28 +347,19 @@ export default function TicketActivitiesClient({
                                 )}
                               </div>
                             )}
-                            <p className="whitespace-pre-wrap">{activity.content}</p>
-                            {canModify && (
-                              <div className="flex gap-2 mt-2 pt-2 border-t">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => startEdit(activity)}
-                                  className="h-7 text-xs"
-                                >
-                                  <Pencil className="h-3 w-3 mr-1" />
-                                  {t("common.edit")}
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => confirmDelete(activity.id)}
-                                  className="h-7 text-xs text-red-600 hover:text-red-700"
-                                >
-                                  <Trash2 className="h-3 w-3 mr-1" />
-                                  {t("common.delete")}
-                                </Button>
-                              </div>
+                            {activity.content && activity.content.trim() !== '' && (
+                              <p className="whitespace-pre-wrap">{activity.content}</p>
+                            )}
+
+                            {/* Display attachments */}
+                            {activity.ticket_comment_attachments && activity.ticket_comment_attachments.length > 0 && (
+                              <AttachmentDisplay
+                                attachments={activity.ticket_comment_attachments}
+                                canDelete={canModify && !isTicketClosed}
+                                activityId={activity.id}
+                                isEditing={false}
+                                hasContent={activity.content && activity.content.trim() !== ''}
+                              />
                             )}
                           </>
                         )}

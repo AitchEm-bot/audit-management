@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { createSupabaseQueries } from "@/lib/supabase/queries"
 import { ExcelReportGenerator } from "@/lib/excel-export"
@@ -218,6 +218,8 @@ export function ReportGenerator() {
       // Show success message
       const successMessage = `Report generated successfully! Downloaded ${filename}.`
       setSuccess(successMessage)
+
+      console.log("generateReport: About to clear loading state")
 
     } catch (err) {
       console.error("generateReport: Error occurred:", err)

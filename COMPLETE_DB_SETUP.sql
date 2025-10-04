@@ -204,6 +204,15 @@ CREATE POLICY "Users can upload comment attachments" ON public.ticket_comment_at
     )
   );
 
+CREATE POLICY "Users can delete their own comment attachments" ON public.ticket_comment_attachments
+  FOR DELETE USING (
+    EXISTS (
+      SELECT 1 FROM public.ticket_activities ta
+      WHERE ta.id = ticket_comment_attachments.activity_id
+      AND ta.user_id = auth.uid()
+    )
+  );
+
 -- =============================================================================
 -- STEP 12: CREATE RLS POLICIES - AUDIT LOGS
 -- =============================================================================
@@ -242,6 +251,7 @@ CREATE INDEX IF NOT EXISTS idx_ticket_activities_user_id ON public.ticket_activi
 
 -- Comment attachments indexes
 CREATE INDEX IF NOT EXISTS idx_comment_attachments_activity_id ON public.ticket_comment_attachments(activity_id);
+CREATE INDEX IF NOT EXISTS idx_comment_attachments_created_at ON public.ticket_comment_attachments(created_at DESC);
 
 -- Audit logs indexes
 CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON public.audit_logs(user_id);
@@ -467,7 +477,185 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- =============================================================================
--- STEP 15: CREATE MATERIALIZED VIEWS FOR ANALYTICS
+-- STEP 15: CREATE TRIGGERS FOR ATTACHMENT ACTIVITY LOGGING
+-- =============================================================================
+
+-- Function to log attachment addition
+-- Only creates standalone activity if parent comment has no content (file-only comment)
+CREATE OR REPLACE FUNCTION log_attachment_added()
+RETURNS TRIGGER AS $$
+DECLARE
+  ticket_id_var UUID;
+  comment_content TEXT;
+BEGIN
+  -- Get the ticket_id and comment content from the activity
+  SELECT ticket_id, content INTO ticket_id_var, comment_content
+  FROM public.ticket_activities
+  WHERE id = NEW.activity_id;
+
+  -- Only create standalone activity if the comment is empty (file-only comment)
+  -- If comment has text, the attachment will be displayed inline with the comment
+  IF comment_content IS NULL OR TRIM(comment_content) = '' THEN
+    INSERT INTO public.ticket_activities (
+      ticket_id,
+      user_id,
+      activity_type,
+      content,
+      metadata
+    ) VALUES (
+      ticket_id_var,
+      auth.uid(),
+      'file_attachment',
+      'Attached file: ' || NEW.filename,
+      jsonb_build_object(
+        'attachment_id', NEW.id,
+        'filename', NEW.filename,
+        'file_size', NEW.file_size,
+        'mime_type', NEW.mime_type,
+        'action', 'added'
+      )
+    );
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trigger_log_attachment_added ON public.ticket_comment_attachments;
+CREATE TRIGGER trigger_log_attachment_added
+  AFTER INSERT ON public.ticket_comment_attachments
+  FOR EACH ROW
+  EXECUTE FUNCTION log_attachment_added();
+
+-- Function to log attachment deletion
+-- Silent deletion - no activity log created, just removes from comment
+CREATE OR REPLACE FUNCTION log_attachment_deleted()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Silent deletion - attachment is just removed from the comment
+  -- No standalone activity log is created
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trigger_log_attachment_deleted ON public.ticket_comment_attachments;
+CREATE TRIGGER trigger_log_attachment_deleted
+  BEFORE DELETE ON public.ticket_comment_attachments
+  FOR EACH ROW
+  EXECUTE FUNCTION log_attachment_deleted();
+
+-- =============================================================================
+-- STEP 15A: CREATE STORAGE BUCKET FOR ATTACHMENTS
+-- =============================================================================
+
+-- Create the ticket-attachments bucket (50MB limit to stay within Supabase free tier)
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'ticket-attachments',
+  'ticket-attachments',
+  false,
+  52428800, -- 50MB in bytes (limit set to work within Supabase global storage limits)
+  ARRAY[
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'image/svg+xml',
+    'video/mp4',
+    'video/webm',
+    'video/quicktime',
+    'video/x-msvideo',
+    'video/avi',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'text/plain',
+    'text/csv'
+  ]
+)
+ON CONFLICT (id) DO UPDATE SET
+  file_size_limit = 52428800,
+  allowed_mime_types = ARRAY[
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'image/svg+xml',
+    'video/mp4',
+    'video/webm',
+    'video/quicktime',
+    'video/x-msvideo',
+    'video/avi',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'text/plain',
+    'text/csv'
+  ];
+
+-- =============================================================================
+-- STEP 15B: CREATE STORAGE POLICIES
+-- =============================================================================
+
+-- Allow authenticated users to upload files
+DROP POLICY IF EXISTS "Authenticated users can upload attachments" ON storage.objects;
+CREATE POLICY "Authenticated users can upload attachments"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (
+  bucket_id = 'ticket-attachments' AND
+  auth.uid()::text = (storage.foldername(name))[1]
+);
+
+-- Allow users to view attachments
+DROP POLICY IF EXISTS "Users can view attachments" ON storage.objects;
+CREATE POLICY "Users can view attachments"
+ON storage.objects FOR SELECT
+TO authenticated
+USING (bucket_id = 'ticket-attachments');
+
+-- Allow users to delete their own attachments
+DROP POLICY IF EXISTS "Users can delete own attachments" ON storage.objects;
+CREATE POLICY "Users can delete own attachments"
+ON storage.objects FOR DELETE
+TO authenticated
+USING (
+  bucket_id = 'ticket-attachments' AND
+  auth.uid()::text = (storage.foldername(name))[1]
+);
+
+-- =============================================================================
+-- STEP 15C: ADD RLS POLICY FOR DELETING ATTACHMENTS
+-- =============================================================================
+
+DROP POLICY IF EXISTS "Users can delete their own comment attachments" ON public.ticket_comment_attachments;
+CREATE POLICY "Users can delete their own comment attachments"
+ON public.ticket_comment_attachments FOR DELETE
+USING (
+  EXISTS (
+    SELECT 1 FROM public.ticket_activities ta
+    WHERE ta.id = ticket_comment_attachments.activity_id
+    AND ta.user_id = auth.uid()
+  )
+);
+
+-- =============================================================================
+-- STEP 15D: ADD INDEX FOR PERFORMANCE
+-- =============================================================================
+
+CREATE INDEX IF NOT EXISTS idx_comment_attachments_created_at
+ON public.ticket_comment_attachments(created_at DESC);
+
+-- =============================================================================
+-- STEP 16: CREATE MATERIALIZED VIEWS FOR ANALYTICS
 -- =============================================================================
 
 -- Department statistics view
@@ -516,9 +704,18 @@ BEGIN
     RAISE NOTICE '  - ticket_comment_attachments';
     RAISE NOTICE '  - audit_logs';
     RAISE NOTICE '';
+    RAISE NOTICE 'Created storage:';
+    RAISE NOTICE '  - ticket-attachments bucket (50MB file limit)';
+    RAISE NOTICE '  - Storage RLS policies for upload/view/delete';
+    RAISE NOTICE '';
     RAISE NOTICE 'Created materialized views:';
     RAISE NOTICE '  - mv_department_stats';
     RAISE NOTICE '  - mv_daily_metrics';
     RAISE NOTICE '';
     RAISE NOTICE 'All RLS policies, triggers, and indexes have been created.';
+    RAISE NOTICE '';
+    RAISE NOTICE 'Supported file types:';
+    RAISE NOTICE '  - Images: JPEG, PNG, GIF, WebP, SVG';
+    RAISE NOTICE '  - Videos: MP4, WebM, MOV, AVI';
+    RAISE NOTICE '  - Documents: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT, CSV';
 END $$;

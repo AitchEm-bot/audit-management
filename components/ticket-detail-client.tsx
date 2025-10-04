@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useFormStatus } from "react-dom"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -17,6 +17,8 @@ import {
   CheckCircle,
   AlertCircle,
   Send,
+  Paperclip,
+  X,
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -95,6 +97,9 @@ export function TicketDetailClient({ ticket, commentCount: initialCommentCount =
   const [showCloseDialog, setShowCloseDialog] = useState(false)
   const [commentCount, setCommentCount] = useState(initialCommentCount)
   const [statusUpdating, setStatusUpdating] = useState(false)
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [isDragging, setIsDragging] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Get success/error messages from URL
   const successMessage = searchParams.get('success')
@@ -104,6 +109,83 @@ export function TicketDetailClient({ ticket, commentCount: initialCommentCount =
   useEffect(() => {
     setCommentCount(initialCommentCount)
   }, [initialCommentCount])
+
+  // Clear selected files when form is successfully submitted
+  useEffect(() => {
+    if (successMessage) {
+      setSelectedFiles([])
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }, [successMessage])
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    addFiles(files)
+    // Reset the input so the same file can be selected again
+    e.target.value = ''
+  }
+
+  const addFiles = (files: File[]) => {
+    // Validate file count
+    if (selectedFiles.length + files.length > 5) {
+      alert(t('tickets.maxFiles'))
+      return
+    }
+    // Validate file sizes (50MB = 52428800 bytes)
+    const invalidFiles = files.filter(f => f.size > 52428800)
+    if (invalidFiles.length > 0) {
+      alert(t('tickets.maxFileSize'))
+      return
+    }
+    setSelectedFiles([...selectedFiles, ...files])
+  }
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(selectedFiles.filter((_, i) => i !== index))
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(true)
+  }
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+
+    const files = Array.from(e.dataTransfer.files)
+    addFiles(files)
+  }
+
+  // Update the hidden file input whenever selectedFiles changes
+  useEffect(() => {
+    if (fileInputRef.current && selectedFiles.length > 0) {
+      const dataTransfer = new DataTransfer()
+      selectedFiles.forEach(file => {
+        dataTransfer.items.add(file)
+      })
+      fileInputRef.current.files = dataTransfer.files
+      console.log('📎 Updated hidden file input with', selectedFiles.length, 'files')
+    }
+  }, [selectedFiles])
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
+  }
 
   const updateTicketStatus = async (newStatus: string) => {
     // If trying to close the ticket, show the dialog instead
@@ -160,18 +242,24 @@ export function TicketDetailClient({ ticket, commentCount: initialCommentCount =
       {/* Success/Error Messages */}
       {successMessage && (
         <Alert className="border-green-200 bg-green-50">
-          <CheckCircle className="h-4 w-4 text-green-600" />
+          <CheckCircle
+            className="h-4 w-4 text-green-600"
+            style={locale === 'ar' ? { transform: 'scaleX(1)' } : undefined}
+          />
           <AlertDescription className="text-green-800">
-            {successMessage}
+            {successMessage.includes('Comment added') ? t('tickets.commentAdded') : successMessage}
           </AlertDescription>
         </Alert>
       )}
 
       {errorMessage && (
         <Alert className="border-red-200 bg-red-50">
-          <AlertCircle className="h-4 w-4 text-red-600" />
+          <AlertCircle
+            className="h-4 w-4 text-red-600"
+            style={locale === 'ar' ? { transform: 'scaleX(1)' } : undefined}
+          />
           <AlertDescription className="text-red-800">
-            {errorMessage}
+            {errorMessage === 'pleaseProvideCommentOrFile' ? t('common.pleaseProvideCommentOrFile') : errorMessage}
           </AlertDescription>
         </Alert>
       )}
@@ -200,12 +288,82 @@ export function TicketDetailClient({ ticket, commentCount: initialCommentCount =
               </CardHeader>
               <CardContent>
                 <form action={addComment.bind(null, ticket.id)} className="space-y-4">
-                  <Textarea
-                    name="content"
-                    placeholder={t("tickets.commentPlaceholder")}
-                    className="min-h-[100px]"
-                    required
-                  />
+                  <div
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    className={`relative ${isDragging ? 'ring-2 ring-primary ring-offset-2 rounded-lg' : ''}`}
+                  >
+                    <Textarea
+                      name="content"
+                      placeholder={t("tickets.commentPlaceholder")}
+                      className="min-h-[100px]"
+                    />
+                    {isDragging && (
+                      <div className="absolute inset-0 bg-primary/5 rounded-lg flex items-center justify-center pointer-events-none">
+                        <p className="text-sm text-primary font-medium">{t("tickets.dropFilesHere")}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* File Upload Section */}
+                  <div className="space-y-2">
+                    {/* Hidden file input that will be submitted with the form */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      name="files"
+                      multiple
+                      accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv"
+                      className="hidden"
+                    />
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="file"
+                        id="file-upload"
+                        multiple
+                        accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv"
+                        onChange={handleFileSelect}
+                        className="hidden"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => document.getElementById('file-upload')?.click()}
+                        disabled={selectedFiles.length >= 5}
+                      >
+                        <Paperclip className="h-4 w-4 mr-2" />
+                        {t("tickets.attachFile")}
+                      </Button>
+                      <span className="text-xs text-muted-foreground">
+                        {t("tickets.maxFileSize")} • {t("tickets.maxFiles")}
+                      </span>
+                    </div>
+
+                    {/* Selected Files Preview */}
+                    {selectedFiles.length > 0 && (
+                      <div className="space-y-2">
+                        {selectedFiles.map((file, index) => (
+                          <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded border">
+                            <Paperclip className="h-4 w-4 text-gray-500" />
+                            <span className="text-sm flex-1 truncate">{file.name}</span>
+                            <span className="text-xs text-gray-500">{formatFileSize(file.size)}</span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeFile(index)}
+                              className="h-6 w-6 p-0"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
                   <div className="flex justify-end">
                     <CommentSubmitButton />
                   </div>

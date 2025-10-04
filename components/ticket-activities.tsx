@@ -1,6 +1,15 @@
 import { createClient } from "@/lib/supabase/server"
 import TicketActivitiesClient from "./ticket-activities-client"
 
+interface Attachment {
+  id: string
+  filename: string
+  file_path: string
+  file_size: number
+  mime_type: string
+  created_at: string
+}
+
 interface TicketActivity {
   id: string
   activity_type: string
@@ -14,6 +23,7 @@ interface TicketActivity {
     full_name: string
     email: string
   } | null
+  ticket_comment_attachments?: Attachment[]
 }
 
 interface TicketActivitiesProps {
@@ -29,7 +39,17 @@ async function fetchActivities(ticketId: string): Promise<TicketActivity[]> {
   try {
     const { data: activities, error } = await supabase
       .from("ticket_activities")
-      .select("*")
+      .select(`
+        *,
+        ticket_comment_attachments (
+          id,
+          filename,
+          file_path,
+          file_size,
+          mime_type,
+          created_at
+        )
+      `)
       .eq("ticket_id", ticketId)
       .order("created_at", { ascending: true })
 
