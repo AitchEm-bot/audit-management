@@ -595,12 +595,12 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center space-x-2 mb-4">
-            <Switch id="use-ai" checked={useAI} onCheckedChange={setUseAI} disabled={isProcessing} />
+          <div className="flex items-center gap-2 mb-4">
             <Label htmlFor="use-ai" className="flex items-center gap-2">
               <Brain className="h-4 w-4" />
               {t("upload.useAI")}
             </Label>
+            <Switch id="use-ai" checked={useAI} onCheckedChange={setUseAI} disabled={isProcessing} />
           </div>
 
           <div

@@ -403,7 +403,7 @@ export function DashboardMetrics({ initialStats }: DashboardMetricsProps) {
                   align="right"
                   layout="vertical"
                   iconType="circle"
-                  wrapperStyle={{ paddingLeft: '20px' }}
+                  wrapperStyle={{ paddingLeft: '40px' }}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -417,7 +417,7 @@ export function DashboardMetrics({ initialStats }: DashboardMetricsProps) {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={350}>
-              <BarChart data={priorityData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+              <BarChart data={priorityData} margin={{ top: 20, right: 30, left: 40, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} />
@@ -447,7 +447,7 @@ export function DashboardMetrics({ initialStats }: DashboardMetricsProps) {
             <ResponsiveContainer width="100%" height={350}>
               <BarChart
                 data={departmentData}
-                margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                margin={{ top: 20, right: 30, left: 40, bottom: 60 }}
               >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
@@ -455,7 +455,7 @@ export function DashboardMetrics({ initialStats }: DashboardMetricsProps) {
                   tick={{ fontSize: 11, angle: -45, textAnchor: 'end' }}
                   height={80}
                   interval={0}
-                  tickFormatter={(value) => value.length > 12 ? `${value.substring(0, 9)}...` : value}
+                  tickFormatter={(value) => value.length > 18 ? `${value.substring(0, 15)}...` : value}
                 />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip formatter={(value, name) => [`${value} ${t("common.allAuditTickets")}`, `${t("tickets.department")}: ${name}`]} />
