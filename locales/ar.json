@@ -320,5 +320,10 @@
     "commentsSheet": "التعليقات",
     "generating": "جاري الإنشاء...",
     "generateExcelReport": "إنشاء تقرير Excel"
+  },
+  "datePicker": {
+    "invalidDateFormat": "تنسيق التاريخ غير صالح. استخدم يوم/شهر/سنة",
+    "dateInputPlaceholder": "يوم/شهر/سنة",
+    "pickADate": "اختر تاريخ"
   }
 }

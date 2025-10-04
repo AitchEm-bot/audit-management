@@ -320,5 +320,10 @@
     "commentsSheet": "Comments",
     "generating": "Generating...",
     "generateExcelReport": "Generate Excel Report"
+  },
+  "datePicker": {
+    "invalidDateFormat": "Invalid date format. Use DD/MM/YYYY",
+    "dateInputPlaceholder": "DD/MM/YYYY",
+    "pickADate": "Pick a date"
   }
 }
