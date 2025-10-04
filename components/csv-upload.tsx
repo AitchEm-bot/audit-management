@@ -11,6 +11,8 @@ import { createClient } from "@/lib/supabase/client"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
+import { useLanguage } from "@/contexts/language-context"
+import { useTranslation } from "@/lib/translations"
 
 interface CSVUploadProps {
   onUploadComplete?: (tickets: any[]) => void
@@ -57,6 +59,8 @@ interface CSVParseResult {
 }
 
 export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
+  const { locale } = useLanguage()
+  const { t } = useTranslation(locale)
   const [isProcessing, setIsProcessing] = useState(false)
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
@@ -546,7 +550,10 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
       const data = result.tickets
 
       setProgress(100)
-      setSuccess(`Successfully created ${data.length} audit tickets${useAI ? " with AI department assignments" : ""}`)
+      const successMsg = useAI
+        ? t("upload.successWithAI", { count: data.length.toString() })
+        : t("upload.successMessage", { count: data.length.toString() })
+      setSuccess(successMsg)
       onUploadComplete?.(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred processing the file")
@@ -581,10 +588,10 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Upload className="h-5 w-5" />
-            Upload Audit CSV
+            {t("upload.uploadCSVTitle")}
           </CardTitle>
           <CardDescription>
-            Upload a CSV file to automatically create audit tickets. Required columns: title, description
+            {t("upload.uploadCSVDescription")}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -592,7 +599,7 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
             <Switch id="use-ai" checked={useAI} onCheckedChange={setUseAI} disabled={isProcessing} />
             <Label htmlFor="use-ai" className="flex items-center gap-2">
               <Brain className="h-4 w-4" />
-              Use AI for categorization
+              {t("upload.useAI")}
             </Label>
           </div>
 
@@ -605,16 +612,16 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
             <input {...getInputProps()} />
             <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
             {isDragActive ? (
-              <p className="text-lg">Drop the CSV file here...</p>
+              <p className="text-lg">{t("upload.dropFile")}</p>
             ) : (
               <div>
-                <p className="text-lg mb-2">Drag & drop a CSV file here, or click to select</p>
+                <p className="text-lg mb-2">{t("upload.dragDrop")}</p>
                 <p className="text-sm text-muted-foreground">
-                  Supports .csv files with columns: title, description, department, priority, status, due_date
+                  {t("upload.supportedFormats")}
                 </p>
                 {useAI && (
                   <p className="text-sm text-blue-600 mt-2">
-                    AI will automatically map columns and classify departments for all tickets
+                    {t("upload.aiMessage")}
                   </p>
                 )}
               </div>
@@ -625,17 +632,17 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
             <div className="mt-4 space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span>
-                  {progress < 5 && useAI && "Uploading file to AI..."}
-                  {progress < 5 && !useAI && "Reading CSV file..."}
-                  {progress >= 5 && progress < 10 && useAI && "Preparing file for analysis..."}
-                  {progress >= 10 && progress < 15 && useAI && "AI analyzing file structure..."}
-                  {progress >= 15 && progress < 22 && useAI && "AI classifying columns..."}
-                  {progress >= 22 && progress < 25 && useAI && "AI processing departments..."}
-                  {progress >= 25 && progress < 50 && useAI && "AI extracting ticket data..."}
-                  {progress >= 25 && progress < 50 && !useAI && "Processing tickets..."}
-                  {progress >= 50 && progress < 75 && "Validating ticket data..."}
-                  {progress >= 75 && progress < 90 && "Creating tickets in database..."}
-                  {progress >= 90 && "Finalizing..."}
+                  {progress < 5 && useAI && t("upload.uploadProgress")}
+                  {progress < 5 && !useAI && t("upload.readingFile")}
+                  {progress >= 5 && progress < 10 && useAI && t("upload.preparingFile")}
+                  {progress >= 10 && progress < 15 && useAI && t("upload.analyzingStructure")}
+                  {progress >= 15 && progress < 22 && useAI && t("upload.classifyingColumns")}
+                  {progress >= 22 && progress < 25 && useAI && t("upload.processingDepartments")}
+                  {progress >= 25 && progress < 50 && useAI && t("upload.extractingData")}
+                  {progress >= 25 && progress < 50 && !useAI && t("upload.processingTickets")}
+                  {progress >= 50 && progress < 75 && t("upload.validatingData")}
+                  {progress >= 75 && progress < 90 && t("upload.creatingTickets")}
+                  {progress >= 90 && t("upload.finalizing")}
                 </span>
                 <span>{progress}%</span>
               </div>

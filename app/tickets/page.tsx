@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { createSupabaseQueries } from "@/lib/supabase/queries"
-import { TicketList } from "@/components/ticket-list"
+import { TicketsPageContent } from "@/components/tickets-page-content"
 
 interface PageProps {
   searchParams?: {
@@ -89,21 +89,12 @@ export default async function TicketsPage({ searchParams }: PageProps) {
   }
 
   return (
-    <div className="container mx-auto py-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold">Audit Tickets</h1>
-          <p className="text-muted-foreground mt-2">View and manage all audit findings and remediation tasks</p>
-        </div>
-
-        <TicketList
-          tickets={tickets}
-          departments={departments}
-          totalCount={totalCount}
-          totalPages={totalPages}
-          currentPage={page}
-        />
-      </div>
-    </div>
+    <TicketsPageContent
+      tickets={tickets}
+      departments={departments}
+      totalCount={totalCount}
+      totalPages={totalPages}
+      currentPage={page}
+    />
   )
 }

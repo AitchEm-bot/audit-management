@@ -5,6 +5,7 @@ import "./globals.css"
 import { AuthProvider } from "@/hooks/use-auth"
 import { Navigation } from "@/components/navigation"
 import { NavigationLoading } from "@/components/navigation-loading"
+import { LanguageProvider } from "@/contexts/language-context"
 
 const inter = Inter({
   variable: "--font-inter",
@@ -23,13 +24,15 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans antialiased`}>
-        <AuthProvider>
-          <NavigationLoading />
-          <Navigation />
-          <main>{children}</main>
-        </AuthProvider>
+        <LanguageProvider>
+          <AuthProvider>
+            <NavigationLoading />
+            <Navigation />
+            <main>{children}</main>
+          </AuthProvider>
+        </LanguageProvider>
       </body>
     </html>
   )

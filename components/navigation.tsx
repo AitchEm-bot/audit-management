@@ -10,12 +10,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/hooks/use-auth"
+import { useLanguage } from "@/contexts/language-context"
+import { useTranslation } from "@/lib/translations"
+import { LanguageToggle } from "@/components/language-toggle"
 import { User, Settings, LogOut, Shield } from "lucide-react"
 import Link from "next/link"
 import { signOut as serverSignOut } from "@/app/auth/actions"
 
 export function Navigation() {
   const { user, profile, hasRole } = useAuth()
+  const { locale } = useLanguage()
+  const { t } = useTranslation(locale)
 
   const handleSignOut = async () => {
     // Directly call server action - it will handle everything and redirect
@@ -32,25 +37,25 @@ export function Navigation() {
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center space-x-8">
             <Link href="/dashboard" className="text-xl font-bold">
-              Audit Management
+              {t("common.auditManagement")}
             </Link>
 
             <div className="hidden md:flex items-center space-x-6">
               <Link href="/dashboard" className="text-sm font-medium hover:text-primary">
-                Dashboard
+                {t("common.dashboard")}
               </Link>
               <Link href="/tickets" className="text-sm font-medium hover:text-primary">
-                Tickets
+                {t("common.tickets")}
               </Link>
               <Link href="/upload" className="text-sm font-medium hover:text-primary">
-                Upload
+                {t("common.upload")}
               </Link>
               <Link href="/reports" className="text-sm font-medium hover:text-primary">
-                Reports
+                {t("common.reports")}
               </Link>
               {hasRole("admin") && (
                 <Link href="/admin" className="text-sm font-medium hover:text-primary">
-                  Admin
+                  {t("common.admin")}
                 </Link>
               )}
             </div>
@@ -74,6 +79,8 @@ export function Navigation() {
               </div>
             )}
 
+            <LanguageToggle />
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="relative h-8 w-8 rounded-full">
@@ -91,21 +98,21 @@ export function Navigation() {
                 <DropdownMenuItem asChild>
                   <Link href="/profile" className="cursor-pointer">
                     <Settings className="mr-2 h-4 w-4" />
-                    Profile Settings
+                    {t("common.profileSettings")}
                   </Link>
                 </DropdownMenuItem>
                 {hasRole("admin") && (
                   <DropdownMenuItem asChild>
                     <Link href="/admin" className="cursor-pointer">
                       <Shield className="mr-2 h-4 w-4" />
-                      Admin Panel
+                      {t("common.adminPanel")}
                     </Link>
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
                   <LogOut className="mr-2 h-4 w-4" />
-                  Sign out
+                  {t("common.signOut")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
