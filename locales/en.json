@@ -217,7 +217,9 @@
     "activityAssignmentChange": "Assignment Change",
     "activityPriorityChange": "Priority Change",
     "activityFileAttachment": "File Attachment",
-    "activityTicketCreated": "Ticket Created"
+    "activityTicketCreated": "Ticket Created",
+    "closingComment": "Closing Comment",
+    "aiGenerated": "AI Generated"
   },
   "upload": {
     "title": "Upload Audit Data",

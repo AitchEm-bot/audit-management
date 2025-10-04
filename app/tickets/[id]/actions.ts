@@ -227,7 +227,7 @@ export async function updateTicketStatus(ticketId: string, newStatus: string) {
   }
 }
 
-export async function closeTicketWithComment(ticketId: string, closingComment: string) {
+export async function closeTicketWithComment(ticketId: string, closingComment: string, aiGenerated = false) {
   const supabase = await createClient()
 
   // Check if user is authenticated
@@ -266,12 +266,17 @@ export async function closeTicketWithComment(ticketId: string, closingComment: s
     }
 
     // Add closing comment as a regular comment so it's visible in the thread
+    // with metadata to mark it as a closing comment
     try {
       await supabase.from('ticket_activities').insert({
         ticket_id: ticketId,
         user_id: user.id,
         activity_type: 'comment',
         content: closingComment.trim(),
+        metadata: {
+          is_closing_comment: true,
+          ai_generated: aiGenerated
+        }
       })
     } catch (activityError) {
       console.error('Could not add closing comment to thread:', activityError)

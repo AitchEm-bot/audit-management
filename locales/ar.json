@@ -217,7 +217,9 @@
     "activityAssignmentChange": "تغيير التعيين",
     "activityPriorityChange": "تغيير الأولوية",
     "activityFileAttachment": "مرفق ملف",
-    "activityTicketCreated": "تذكرة تم إنشاؤها"
+    "activityTicketCreated": "تذكرة تم إنشاؤها",
+    "closingComment": "تعليق الإغلاق",
+    "aiGenerated": "تم إنشاؤها بالذكاء الاصطناعي"
   },
   "upload": {
     "title": "رفع بيانات التدقيق",

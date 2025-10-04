@@ -37,10 +37,15 @@ export function CloseTicketDialog({
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [commentCount, setCommentCount] = useState(initialCommentCount || 0)
+  const [wasAIGenerated, setWasAIGenerated] = useState(false)
 
   // Fetch actual comment count when dialog opens
   useEffect(() => {
     if (open) {
+      // Reset state when dialog opens
+      setClosingComment("")
+      setWasAIGenerated(false)
+      setError(null)
       // Immediately enable the button (assume there are comments)
       setCommentCount(initialCommentCount || 1)
 
@@ -122,6 +127,9 @@ export function CloseTicketDialog({
           setClosingComment(accumulatedText)
         }
       }
+
+      // Mark that AI was used to generate this comment
+      setWasAIGenerated(true)
     } catch (err) {
       console.error('Error calling AI summarization:', err)
       setError('Failed to connect to AI service. Please write a closing comment manually.')
@@ -140,7 +148,7 @@ export function CloseTicketDialog({
     setError(null)
 
     try {
-      const result = await closeTicketWithComment(ticketId, closingComment.trim())
+      const result = await closeTicketWithComment(ticketId, closingComment.trim(), wasAIGenerated)
 
       if (result?.error) {
         setError(result.error)
@@ -159,6 +167,7 @@ export function CloseTicketDialog({
 
   const handleCancel = () => {
     setClosingComment("")
+    setWasAIGenerated(false)
     setError(null)
     onOpenChange(false)
   }
@@ -207,7 +216,13 @@ export function CloseTicketDialog({
               id="closing-comment"
               placeholder="Summarize the resolution, key decisions, and final outcomes..."
               value={closingComment}
-              onChange={(e) => setClosingComment(e.target.value)}
+              onChange={(e) => {
+                setClosingComment(e.target.value)
+                // If user manually types, reset AI flag
+                if (wasAIGenerated && e.target.value !== closingComment) {
+                  setWasAIGenerated(false)
+                }
+              }}
               rows={6}
               disabled={isGenerating || isSaving}
               className="resize-none"

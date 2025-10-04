@@ -322,12 +322,17 @@ CREATE TRIGGER trigger_ticket_created_activity
     AFTER INSERT ON public.audit_tickets
     FOR EACH ROW EXECUTE FUNCTION create_ticket_created_activity();
 
--- Function to automatically track status and assignment changes
+-- Function to automatically track status, priority, and assignment changes
 CREATE OR REPLACE FUNCTION track_ticket_status_change()
 RETURNS TRIGGER AS $$
+DECLARE
+    old_user_name TEXT;
+    new_user_name TEXT;
+    old_user_email TEXT;
+    new_user_email TEXT;
 BEGIN
-    -- Only track if status actually changed
-    IF OLD.status != NEW.status THEN
+    -- Track status changes
+    IF OLD.status IS DISTINCT FROM NEW.status THEN
         INSERT INTO public.ticket_activities (
             ticket_id,
             user_id,
@@ -345,8 +350,8 @@ BEGIN
         );
     END IF;
 
-    -- Track assignment changes
-    IF (OLD.assigned_to IS DISTINCT FROM NEW.assigned_to) THEN
+    -- Track priority changes
+    IF OLD.priority IS DISTINCT FROM NEW.priority THEN
         INSERT INTO public.ticket_activities (
             ticket_id,
             user_id,
@@ -357,14 +362,70 @@ BEGIN
         ) VALUES (
             NEW.id,
             auth.uid(),
+            'priority_change',
+            'Priority changed from ' || OLD.priority || ' to ' || NEW.priority,
+            OLD.priority,
+            NEW.priority
+        );
+    END IF;
+
+    -- Track assignment changes with user names in metadata
+    IF OLD.assigned_to IS DISTINCT FROM NEW.assigned_to THEN
+        -- Get old user info if exists
+        IF OLD.assigned_to IS NOT NULL THEN
+            SELECT full_name, email INTO old_user_name, old_user_email
+            FROM public.profiles
+            WHERE id = OLD.assigned_to;
+
+            -- Fallback to email from auth.users if profile doesn't exist
+            IF old_user_name IS NULL THEN
+                SELECT email INTO old_user_email
+                FROM auth.users
+                WHERE id = OLD.assigned_to;
+                old_user_name := COALESCE(old_user_email, 'Unknown User');
+            END IF;
+        END IF;
+
+        -- Get new user info if exists
+        IF NEW.assigned_to IS NOT NULL THEN
+            SELECT full_name, email INTO new_user_name, new_user_email
+            FROM public.profiles
+            WHERE id = NEW.assigned_to;
+
+            -- Fallback to email from auth.users if profile doesn't exist
+            IF new_user_name IS NULL THEN
+                SELECT email INTO new_user_email
+                FROM auth.users
+                WHERE id = NEW.assigned_to;
+                new_user_name := COALESCE(new_user_email, 'Unknown User');
+            END IF;
+        END IF;
+
+        INSERT INTO public.ticket_activities (
+            ticket_id,
+            user_id,
+            activity_type,
+            content,
+            old_value,
+            new_value,
+            metadata
+        ) VALUES (
+            NEW.id,
+            auth.uid(),
             'assignment_change',
             CASE
                 WHEN NEW.assigned_to IS NULL THEN 'Ticket unassigned'
-                WHEN OLD.assigned_to IS NULL THEN 'Ticket assigned'
-                ELSE 'Assignment changed'
+                WHEN OLD.assigned_to IS NULL THEN 'Ticket assigned to ' || COALESCE(new_user_name, NEW.assigned_to::text)
+                ELSE 'Assignment changed from ' || COALESCE(old_user_name, OLD.assigned_to::text) || ' to ' || COALESCE(new_user_name, NEW.assigned_to::text)
             END,
             OLD.assigned_to::text,
-            NEW.assigned_to::text
+            NEW.assigned_to::text,
+            jsonb_build_object(
+                'old_user_name', old_user_name,
+                'new_user_name', new_user_name,
+                'old_user_email', old_user_email,
+                'new_user_email', new_user_email
+            )
         );
     END IF;
 

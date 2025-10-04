@@ -15,13 +15,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { GitCommit, MessageSquare, Edit, CheckCircle, AlertCircle, FileIcon, Activity, Pencil, Trash2, Save, X } from "lucide-react"
+import { GitCommit, MessageSquare, Edit, CheckCircle, AlertCircle, FileIcon, Activity, Pencil, Trash2, Save, X, Sparkles } from "lucide-react"
 import { updateComment, deleteComment } from "@/app/tickets/[id]/actions"
 import { useRouter } from "next/navigation"
 import { useLanguage } from "@/contexts/language-context"
 import { useTranslation } from "@/lib/translations"
 import { formatDateTime } from "@/lib/date-utils"
 import { translateStatus, translatePriority } from "@/lib/ticket-utils"
+import { cn } from "@/lib/utils"
 
 interface TicketActivity {
   id: string
@@ -183,10 +184,12 @@ export default function TicketActivitiesClient({
             const isEditing = editingId === activity.id
             const canModify = !isTicketClosed && currentUserId === activity.user_id && activity.activity_type === "comment"
 
+            const isRTL = locale === 'ar'
+
             return (
               <div key={activity.id} className="flex gap-3">
                 <div className="flex flex-col items-center">
-                  <div className={`p-2 rounded-full ${getActivityColor(activity.activity_type)} bg-gray-50`}>
+                  <div className={`p-2 rounded-full ${getActivityColor(activity.activity_type)} bg-gray-50`} style={isRTL ? { transform: 'scaleX(-1)' } : undefined}>
                     {getActivityIcon(activity.activity_type)}
                   </div>
                   {index < activities.length - 1 && (
@@ -209,7 +212,12 @@ export default function TicketActivitiesClient({
 
                   <div className="text-sm text-gray-700">
                     {activity.activity_type === "comment" && (
-                      <div className="bg-gray-50 p-3 rounded-lg border">
+                      <div className={cn(
+                        "p-3 rounded-lg border",
+                        activity.metadata?.is_closing_comment
+                          ? "bg-green-50 border-green-200"
+                          : "bg-gray-50"
+                      )}>
                         {isEditing ? (
                           <div className="space-y-2">
                             <Textarea
@@ -240,6 +248,20 @@ export default function TicketActivitiesClient({
                           </div>
                         ) : (
                           <>
+                            {activity.metadata?.is_closing_comment && (
+                              <div className="flex items-center gap-2 mb-2 pb-2 border-b border-green-300">
+                                <CheckCircle className="h-4 w-4 text-green-600" />
+                                <span className="text-xs font-medium text-green-700">
+                                  {t("tickets.closingComment")}
+                                </span>
+                                {activity.metadata?.ai_generated && (
+                                  <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-300">
+                                    <Sparkles className="h-3 w-3 mr-1" />
+                                    {t("tickets.aiGenerated")}
+                                  </Badge>
+                                )}
+                              </div>
+                            )}
                             <p className="whitespace-pre-wrap">{activity.content}</p>
                             {canModify && (
                               <div className="flex gap-2 mt-2 pt-2 border-t">
@@ -284,8 +306,8 @@ export default function TicketActivitiesClient({
                     {activity.activity_type === "assignment_change" && (
                       <p>
                         {activity.old_value
-                          ? `${t("tickets.reassignedFrom")} ${activity.old_value} ${t("tickets.to")} ${activity.new_value}`
-                          : `${t("tickets.assignedToUser")} ${activity.new_value}`}
+                          ? `${t("tickets.reassignedFrom")} ${activity.metadata?.old_user_name || activity.old_value} ${t("tickets.to")} ${activity.metadata?.new_user_name || activity.new_value}`
+                          : `${t("tickets.assignedToUser")} ${activity.metadata?.new_user_name || activity.new_value}`}
                       </p>
                     )}
 
