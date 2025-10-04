@@ -15,6 +15,7 @@ import { CloseTicketDialog } from "@/components/close-ticket-dialog"
 import { useLanguage } from "@/contexts/language-context"
 import { useTranslation } from "@/lib/translations"
 import { translateDepartment } from "@/lib/ticket-utils"
+import { DatePicker } from "@/components/ui/date-picker"
 
 interface Ticket {
   id: string
@@ -301,11 +302,11 @@ export function EditTicketForm({
 
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="due_date">{t("tickets.dueDate")}</Label>
-              <Input
-                id="due_date"
-                type="date"
-                value={ticket.due_date ? ticket.due_date.split("T")[0] : ""}
-                onChange={(e) => setTicket({ ...ticket, due_date: e.target.value || null })}
+              <DatePicker
+                value={ticket.due_date ? new Date(ticket.due_date) : undefined}
+                onChange={(date) => setTicket({ ...ticket, due_date: date ? date.toISOString() : null })}
+                locale={locale}
+                placeholder={t("tickets.noDueDate")}
               />
             </div>
           </div>

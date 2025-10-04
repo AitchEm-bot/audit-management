@@ -15,6 +15,7 @@ import { format } from "date-fns"
 import { useLanguage } from "@/contexts/language-context"
 import { useTranslation } from "@/lib/translations"
 import { translateDepartment } from "@/lib/ticket-utils"
+import { DatePicker } from "@/components/ui/date-picker"
 
 interface ReportFilters {
   status: string[]
@@ -372,38 +373,38 @@ export function ReportGenerator() {
                       <Label htmlFor="start-date" className="text-xs text-muted-foreground">
                         {t("reports.startDate")}
                       </Label>
-                      <Input
-                        id="start-date"
-                        type="date"
-                        value={filters.dateRange?.start || ""}
-                        onChange={(e) =>
+                      <DatePicker
+                        value={filters.dateRange?.start ? new Date(filters.dateRange.start) : undefined}
+                        onChange={(date) =>
                           setFilters((prev) => ({
                             ...prev,
                             dateRange: {
-                              start: e.target.value,
+                              start: date ? date.toISOString().split('T')[0] : "",
                               end: prev.dateRange?.end || "",
                             },
                           }))
                         }
+                        locale={locale}
+                        placeholder={t("reports.startDate")}
                       />
                     </div>
                     <div>
                       <Label htmlFor="end-date" className="text-xs text-muted-foreground">
                         {t("reports.endDate")}
                       </Label>
-                      <Input
-                        id="end-date"
-                        type="date"
-                        value={filters.dateRange?.end || ""}
-                        onChange={(e) =>
+                      <DatePicker
+                        value={filters.dateRange?.end ? new Date(filters.dateRange.end) : undefined}
+                        onChange={(date) =>
                           setFilters((prev) => ({
                             ...prev,
                             dateRange: {
                               start: prev.dateRange?.start || "",
-                              end: e.target.value,
+                              end: date ? date.toISOString().split('T')[0] : "",
                             },
                           }))
                         }
+                        locale={locale}
+                        placeholder={t("reports.endDate")}
                       />
                     </div>
                   </div>
