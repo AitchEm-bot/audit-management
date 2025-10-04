@@ -127,10 +127,12 @@
 /* RTL Support */
 [dir="rtl"] {
   direction: rtl;
+  text-align: right;
 }
 
 [dir="ltr"] {
   direction: ltr;
+  text-align: left;
 }
 
 /* Fix flex and grid layouts for RTL */
@@ -142,9 +144,14 @@
   --space-x-reverse: 1;
 }
 
-/* Adjust text alignment for RTL */
-[dir="rtl"] {
-  text-align: start;
+/* Table alignment for RTL */
+[dir="rtl"] table {
+  text-align: right;
+}
+
+[dir="rtl"] th,
+[dir="rtl"] td {
+  text-align: right;
 }
 
 /* Icons and buttons should maintain their position */
@@ -156,4 +163,13 @@
 [dir="rtl"] [role="menu"],
 [dir="rtl"] [role="listbox"] {
   text-align: right;
+}
+
+/* Card and text alignment */
+[dir="rtl"] .text-left {
+  text-align: right !important;
+}
+
+[dir="rtl"] .text-right {
+  text-align: left !important;
 }

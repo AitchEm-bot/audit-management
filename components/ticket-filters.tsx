@@ -5,6 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search } from "lucide-react"
+import { useLanguage } from "@/contexts/language-context"
+import { useTranslation } from "@/lib/translations"
+import { translateStatus, translatePriority, translateDepartment } from "@/lib/ticket-utils"
 
 interface TicketFiltersProps {
   departments: string[]
@@ -14,6 +17,8 @@ export function TicketFilters({ departments }: TicketFiltersProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
+  const { locale } = useLanguage()
+  const { t } = useTranslation(locale)
 
   // Get current values from URL
   const [searchTerm, setSearchTerm] = useState(searchParams.get("search") || "")
@@ -52,7 +57,7 @@ export function TicketFilters({ departments }: TicketFiltersProps) {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input
-            placeholder="Search tickets..."
+            placeholder={t("tickets.searchPlaceholder")}
             value={searchTerm}
             onChange={(e) => handleSearchChange(e.target.value)}
             className="pl-10"
@@ -66,15 +71,15 @@ export function TicketFilters({ departments }: TicketFiltersProps) {
             disabled={isPending}
           >
             <SelectTrigger className="w-32">
-              <SelectValue placeholder="Status" />
+              <SelectValue placeholder={t("tickets.status")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="open">Open</SelectItem>
-              <SelectItem value="in_progress">In Progress</SelectItem>
-              <SelectItem value="resolved">Resolved</SelectItem>
-              <SelectItem value="closed">Closed</SelectItem>
+              <SelectItem value="all">{t("tickets.allStatus")}</SelectItem>
+              <SelectItem value="active">{t("tickets.statusActive")}</SelectItem>
+              <SelectItem value="open">{t("tickets.statusOpen")}</SelectItem>
+              <SelectItem value="in_progress">{t("tickets.statusInProgress")}</SelectItem>
+              <SelectItem value="resolved">{t("tickets.statusResolved")}</SelectItem>
+              <SelectItem value="closed">{t("tickets.statusClosed")}</SelectItem>
             </SelectContent>
           </Select>
 
@@ -84,14 +89,14 @@ export function TicketFilters({ departments }: TicketFiltersProps) {
             disabled={isPending}
           >
             <SelectTrigger className="w-32">
-              <SelectValue placeholder="Priority" />
+              <SelectValue placeholder={t("tickets.priority")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Priority</SelectItem>
-              <SelectItem value="low">Low</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="high">High</SelectItem>
-              <SelectItem value="critical">Critical</SelectItem>
+              <SelectItem value="all">{t("tickets.allPriority")}</SelectItem>
+              <SelectItem value="low">{t("tickets.priorityLow")}</SelectItem>
+              <SelectItem value="medium">{t("tickets.priorityMedium")}</SelectItem>
+              <SelectItem value="high">{t("tickets.priorityHigh")}</SelectItem>
+              <SelectItem value="critical">{t("tickets.priorityCritical")}</SelectItem>
             </SelectContent>
           </Select>
 
@@ -101,13 +106,13 @@ export function TicketFilters({ departments }: TicketFiltersProps) {
             disabled={isPending}
           >
             <SelectTrigger className="w-40">
-              <SelectValue placeholder="Department" />
+              <SelectValue placeholder={t("tickets.department")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Departments</SelectItem>
+              <SelectItem value="all">{t("tickets.allDepartments")}</SelectItem>
               {departments.map((dept) => (
                 <SelectItem key={dept} value={dept}>
-                  {dept}
+                  {translateDepartment(dept, t)}
                 </SelectItem>
               ))}
             </SelectContent>

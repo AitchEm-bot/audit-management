@@ -7,9 +7,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Calendar, ChevronLeft, ChevronRight, Edit, Eye, User } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { format } from "date-fns"
 import { TicketFilters } from "./ticket-filters"
 import { TicketPagination } from "./ticket-pagination"
+import { useLanguage } from "@/contexts/language-context"
+import { useTranslation } from "@/lib/translations"
+import { formatDate } from "@/lib/date-utils"
+import { translateStatus, translatePriority, translateDepartment } from "@/lib/ticket-utils"
 
 interface Ticket {
   id: string
@@ -58,6 +61,8 @@ interface TicketListProps {
 
 export function TicketList({ tickets, departments, totalCount, totalPages, currentPage }: TicketListProps) {
   const router = useRouter()
+  const { locale } = useLanguage()
+  const { t } = useTranslation(locale)
 
   const handleRowClick = (ticketId: string, e: React.MouseEvent) => {
     // Don't navigate if clicking on buttons or links
@@ -72,8 +77,8 @@ export function TicketList({ tickets, departments, totalCount, totalPages, curre
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Audit Tickets</CardTitle>
-          <CardDescription>Manage and track audit findings and remediation efforts</CardDescription>
+          <CardTitle>{t("tickets.title")}</CardTitle>
+          <CardDescription>{t("tickets.cardDescription")}</CardDescription>
         </CardHeader>
         <CardContent>
           <TicketFilters departments={departments} />
@@ -82,21 +87,21 @@ export function TicketList({ tickets, departments, totalCount, totalPages, curre
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Ticket</TableHead>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Department</TableHead>
-                  <TableHead>Priority</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Assigned To</TableHead>
-                  <TableHead>Due Date</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead>{t("tickets.ticket")}</TableHead>
+                  <TableHead>{t("tickets.titleHeader")}</TableHead>
+                  <TableHead>{t("tickets.department")}</TableHead>
+                  <TableHead>{t("tickets.priority")}</TableHead>
+                  <TableHead>{t("tickets.status")}</TableHead>
+                  <TableHead>{t("tickets.assignedTo")}</TableHead>
+                  <TableHead>{t("tickets.dueDate")}</TableHead>
+                  <TableHead>{t("tickets.actions")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {tickets.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                      No tickets found matching your criteria
+                      {t("tickets.noTickets")}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -114,7 +119,7 @@ export function TicketList({ tickets, departments, totalCount, totalPages, curre
                       <TableCell>
                         <Link href={`/tickets/${ticket.id}`} className="block w-full hover:underline">
                           <div>
-                            <div className="font-medium">{ticket.title || "Untitled"}</div>
+                            <div className="font-medium">{ticket.title || t("tickets.untitled")}</div>
                             {ticket.description && (
                               <div className="text-sm text-muted-foreground truncate max-w-xs">
                                 {ticket.description}
@@ -125,20 +130,20 @@ export function TicketList({ tickets, departments, totalCount, totalPages, curre
                       </TableCell>
                       <TableCell>
                         <Link href={`/tickets/${ticket.id}`} className="block w-full">
-                          {ticket.department}
+                          {translateDepartment(ticket.department, t)}
                         </Link>
                       </TableCell>
                       <TableCell>
                         <Link href={`/tickets/${ticket.id}`} className="block w-full">
                           <Badge className={priorityColors[ticket.priority as keyof typeof priorityColors]}>
-                            {ticket.priority}
+                            {translatePriority(ticket.priority, t)}
                           </Badge>
                         </Link>
                       </TableCell>
                       <TableCell>
                         <Link href={`/tickets/${ticket.id}`} className="block w-full">
                           <Badge className={statusColors[ticket.status as keyof typeof statusColors]}>
-                            {ticket.status.replace("_", " ")}
+                            {translateStatus(ticket.status, t)}
                           </Badge>
                         </Link>
                       </TableCell>
@@ -150,7 +155,7 @@ export function TicketList({ tickets, departments, totalCount, totalPages, curre
                               <span className="text-sm">{ticket.assigned_profile.full_name}</span>
                             </div>
                           ) : (
-                            <span className="text-muted-foreground text-sm">Unassigned</span>
+                            <span className="text-muted-foreground text-sm">{t("tickets.unassigned")}</span>
                           )}
                         </Link>
                       </TableCell>
@@ -159,10 +164,10 @@ export function TicketList({ tickets, departments, totalCount, totalPages, curre
                           {ticket.due_date ? (
                             <div className="flex items-center gap-2">
                               <Calendar className="h-4 w-4" />
-                              <span className="text-sm">{format(new Date(ticket.due_date), "MMM dd, yyyy")}</span>
+                              <span className="text-sm">{formatDate(ticket.due_date, locale)}</span>
                             </div>
                           ) : (
-                            <span className="text-muted-foreground text-sm">No due date</span>
+                            <span className="text-muted-foreground text-sm">{t("tickets.noDueDate")}</span>
                           )}
                         </Link>
                       </TableCell>

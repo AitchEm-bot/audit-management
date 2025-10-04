@@ -12,6 +12,9 @@ import { deleteTicket, updateTicket } from "@/app/tickets/[id]/edit/actions"
 import { Save, ArrowLeft, Trash2, User, Users } from "lucide-react"
 import Link from "next/link"
 import { CloseTicketDialog } from "@/components/close-ticket-dialog"
+import { useLanguage } from "@/contexts/language-context"
+import { useTranslation } from "@/lib/translations"
+import { translateDepartment } from "@/lib/ticket-utils"
 
 interface Ticket {
   id: string
@@ -42,6 +45,8 @@ export function EditTicketForm({
   availableUsers: initialAvailableUsers = [],
   commentCount: initialCommentCount = 0
 }: EditTicketFormProps) {
+  const { locale } = useLanguage()
+  const { t } = useTranslation(locale)
   const [ticket, setTicket] = useState<Ticket>(initialTicket)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -161,24 +166,24 @@ export function EditTicketForm({
         <Button variant="outline" asChild>
           <Link href={`/tickets/${ticket.id}`}>
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Ticket
+            {t("tickets.backToTicket")}
           </Link>
         </Button>
         <div>
-          <h1 className="text-3xl font-bold">Edit Ticket</h1>
+          <h1 className="text-3xl font-bold">{t("tickets.editTicketTitle")}</h1>
           <p className="text-muted-foreground font-mono">{ticket.ticket_number}</p>
         </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Ticket Details</CardTitle>
-          <CardDescription>Update the ticket information below</CardDescription>
+          <CardTitle>{t("tickets.ticketDetailsCard")}</CardTitle>
+          <CardDescription>{t("tickets.updateTicketInfo")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <Label htmlFor="title">Title</Label>
+              <Label htmlFor="title">{t("tickets.title")}</Label>
               <Input
                 id="title"
                 value={ticket.title || ""}
@@ -187,7 +192,7 @@ export function EditTicketForm({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="department">Department</Label>
+              <Label htmlFor="department">{t("tickets.department")}</Label>
               <Select
                 value={ticket.department || "General"}
                 onValueChange={(value) => setTicket({ ...ticket, department: value })}
@@ -196,28 +201,28 @@ export function EditTicketForm({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="IT">IT</SelectItem>
-                  <SelectItem value="Finance">Finance</SelectItem>
-                  <SelectItem value="HR">HR</SelectItem>
-                  <SelectItem value="Operations">Operations</SelectItem>
-                  <SelectItem value="Legal">Legal</SelectItem>
+                  <SelectItem value="IT">{t("tickets.deptIT")}</SelectItem>
+                  <SelectItem value="Finance">{t("tickets.deptFinance")}</SelectItem>
+                  <SelectItem value="HR">{t("tickets.deptHR")}</SelectItem>
+                  <SelectItem value="Operations">{t("tickets.deptOperations")}</SelectItem>
+                  <SelectItem value="Legal">{t("tickets.deptLegal")}</SelectItem>
                   <SelectItem value="Marketing">Marketing</SelectItem>
                   <SelectItem value="Sales">Sales</SelectItem>
-                  <SelectItem value="General">General</SelectItem>
+                  <SelectItem value="General">{t("tickets.deptGeneral")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="assigned_to" className="flex items-center gap-2">
-                Assigned To
+                {t("tickets.assignedTo")}
                 {loadingUsers ? (
                   <span className="text-xs text-muted-foreground font-normal">
-                    (loading...)
+                    ({t("tickets.loading")})
                   </span>
                 ) : availableUsers.length > 0 ? (
                   <span className="text-xs text-muted-foreground font-normal">
-                    ({availableUsers.length} available)
+                    ({availableUsers.length} {t("tickets.available")})
                   </span>
                 ) : null}
               </Label>
@@ -227,18 +232,18 @@ export function EditTicketForm({
                 disabled={loadingUsers}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder={loadingUsers ? "Loading users..." : "Select user"} />
+                  <SelectValue placeholder={loadingUsers ? t("tickets.loadingUsers") : t("tickets.selectUser")} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="unassigned">
                     <div className="flex items-center gap-2">
                       <User className="h-4 w-4 text-muted-foreground" />
-                      Unassigned
+                      {t("tickets.unassigned")}
                     </div>
                   </SelectItem>
                   {availableUsers.length === 0 && ticket.department !== "General" && !loadingUsers && (
                     <SelectItem value="no-users" disabled>
-                      No users in this department
+                      {t("tickets.noUsersInDepartment")}
                     </SelectItem>
                   )}
                   {availableUsers.map((user) => (
@@ -253,13 +258,13 @@ export function EditTicketForm({
               </Select>
               {ticket.department !== "General" && availableUsers.length === 0 && !loadingUsers && (
                 <p className="text-xs text-muted-foreground">
-                  No users found in the {ticket.department} department
+                  {t("tickets.noUsersFound", { department: translateDepartment(ticket.department, t) })}
                 </p>
               )}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="priority">Priority</Label>
+              <Label htmlFor="priority">{t("tickets.priority")}</Label>
               <Select
                 value={ticket.priority || "medium"}
                 onValueChange={(value) => setTicket({ ...ticket, priority: value })}
@@ -268,16 +273,16 @@ export function EditTicketForm({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="critical">Critical</SelectItem>
+                  <SelectItem value="low">{t("tickets.priorityLow")}</SelectItem>
+                  <SelectItem value="medium">{t("tickets.priorityMedium")}</SelectItem>
+                  <SelectItem value="high">{t("tickets.priorityHigh")}</SelectItem>
+                  <SelectItem value="critical">{t("tickets.priorityCritical")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
+              <Label htmlFor="status">{t("tickets.status")}</Label>
               <Select
                 value={ticket.status || "open"}
                 onValueChange={(value) => setTicket({ ...ticket, status: value })}
@@ -286,16 +291,16 @@ export function EditTicketForm({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="open">Open</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="resolved">Resolved</SelectItem>
-                  <SelectItem value="closed">Closed</SelectItem>
+                  <SelectItem value="open">{t("tickets.statusOpen")}</SelectItem>
+                  <SelectItem value="in_progress">{t("tickets.statusInProgress")}</SelectItem>
+                  <SelectItem value="resolved">{t("tickets.statusResolved")}</SelectItem>
+                  <SelectItem value="closed">{t("tickets.statusClosed")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="due_date">Due Date</Label>
+              <Label htmlFor="due_date">{t("tickets.dueDate")}</Label>
               <Input
                 id="due_date"
                 type="date"
@@ -306,7 +311,7 @@ export function EditTicketForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description">{t("tickets.description")}</Label>
             <Textarea
               id="description"
               rows={6}
@@ -323,17 +328,17 @@ export function EditTicketForm({
                 {saving ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Saving...
+                    {t("tickets.saving")}
                   </>
                 ) : (
                   <>
                     <Save className="h-4 w-4 mr-2" />
-                    Save Changes
+                    {t("tickets.saveChanges")}
                   </>
                 )}
               </Button>
               <Button variant="outline" asChild>
-                <Link href={`/tickets/${ticket.id}`}>Cancel</Link>
+                <Link href={`/tickets/${ticket.id}`}>{t("common.cancel")}</Link>
               </Button>
             </div>
 
@@ -344,7 +349,7 @@ export function EditTicketForm({
                 disabled={saving}
                 onClick={(e) => {
                   console.log('🖱️ Delete button clicked for ticket:', ticket.id)
-                  if (!confirm('Are you sure you want to delete this ticket? This action cannot be undone.')) {
+                  if (!confirm(t("tickets.deleteTicketConfirm"))) {
                     console.log('❌ User cancelled deletion')
                     e.preventDefault()
                   } else {
@@ -353,7 +358,7 @@ export function EditTicketForm({
                 }}
               >
                 <Trash2 className="h-4 w-4 mr-2" />
-                Delete Ticket
+                {t("tickets.deleteTicketButton")}
               </Button>
             </form>
           </div>

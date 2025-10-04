@@ -763,69 +763,69 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Enhanced CSV Format Guide</CardTitle>
-          <CardDescription>Supports standard audit reports with flexible column mapping</CardDescription>
+          <CardTitle>{t("upload.formatGuide")}</CardTitle>
+          <CardDescription>{t("upload.formatGuideDescription")}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4 text-sm">
             <div>
               <p className="font-medium mb-2">
-                <strong>Flexible Column Recognition:</strong>
+                <strong>{t("upload.flexibleRecognition")}</strong>
               </p>
               <p className="text-muted-foreground mb-3">
-                The parser automatically recognizes common audit report column variations and maps them appropriately.
+                {t("upload.flexibleDescription")}
               </p>
             </div>
 
             <div>
               <p className="font-medium mb-2">
-                <strong>Supported Column Variations:</strong>
+                <strong>{t("upload.supportedVariations")}</strong>
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <p className="font-medium">Title/Finding:</p>
+                  <p className="font-medium">{t("upload.titleFinding")}</p>
                   <ul className="list-disc list-inside ml-4 space-y-1 text-xs">
                     <li><code>title, audit_item, finding, issue, seq, sequence</code></li>
                   </ul>
                 </div>
                 <div>
-                  <p className="font-medium">Description:</p>
+                  <p className="font-medium">{t("upload.descriptionLabel")}</p>
                   <ul className="list-disc list-inside ml-4 space-y-1 text-xs">
                     <li><code>description, finding_description, details, audit_finding</code></li>
                   </ul>
                 </div>
                 <div>
-                  <p className="font-medium">Department/Responsibility:</p>
+                  <p className="font-medium">{t("upload.departmentResponsibility")}</p>
                   <ul className="list-disc list-inside ml-4 space-y-1 text-xs">
                     <li><code>department, responsibility, responsible_dept, dept</code></li>
                   </ul>
                 </div>
                 <div>
-                  <p className="font-medium">Priority/Risk:</p>
+                  <p className="font-medium">{t("upload.priorityRisk")}</p>
                   <ul className="list-disc list-inside ml-4 space-y-1 text-xs">
                     <li><code>priority, risk, severity, risk_level</code></li>
                   </ul>
                 </div>
                 <div>
-                  <p className="font-medium">Status:</p>
+                  <p className="font-medium">{t("upload.statusLabel")}</p>
                   <ul className="list-disc list-inside ml-4 space-y-1 text-xs">
                     <li><code>status, finding_status, current_status</code></li>
                   </ul>
                 </div>
                 <div>
-                  <p className="font-medium">Recommendations:</p>
+                  <p className="font-medium">{t("upload.recommendationsLabel")}</p>
                   <ul className="list-disc list-inside ml-4 space-y-1 text-xs">
                     <li><code>recommendations, recommendation, suggested_action</code></li>
                   </ul>
                 </div>
                 <div>
-                  <p className="font-medium">Management Response:</p>
+                  <p className="font-medium">{t("upload.managementResponseLabel")}</p>
                   <ul className="list-disc list-inside ml-4 space-y-1 text-xs">
                     <li><code>management_response, mgmt_response, response</code></li>
                   </ul>
                 </div>
                 <div>
-                  <p className="font-medium">Follow-up:</p>
+                  <p className="font-medium">{t("upload.followUpLabel")}</p>
                   <ul className="list-disc list-inside ml-4 space-y-1 text-xs">
                     <li><code>followup, followup_response, followup_management_updates</code></li>
                   </ul>
@@ -835,25 +835,25 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
 
             <div>
               <p className="font-medium mb-2">
-                <strong>Advanced Features:</strong>
+                <strong>{t("upload.advancedFeatures")}</strong>
               </p>
               <ul className="list-disc list-inside ml-4 space-y-1">
-                <li>Handles quoted fields with commas, newlines, and special characters</li>
-                <li>Automatic column header normalization and mapping</li>
-                <li>Supports both governmental audit reports and internal tracking formats</li>
-                <li>AI-powered department assignment for unmapped entries</li>
-                <li>Real-time parsing preview with error detection</li>
+                <li>{t("upload.advancedFeature1")}</li>
+                <li>{t("upload.advancedFeature2")}</li>
+                <li>{t("upload.advancedFeature3")}</li>
+                <li>{t("upload.advancedFeature4")}</li>
+                <li>{t("upload.advancedFeature5")}</li>
               </ul>
             </div>
 
             <div>
               <p className="font-medium mb-2">
-                <strong>Data Requirements:</strong>
+                <strong>{t("upload.dataRequirements")}</strong>
               </p>
               <ul className="list-disc list-inside ml-4 space-y-1">
-                <li><strong>Minimum:</strong> At least one description/finding column</li>
-                <li><strong>Recommended:</strong> Include title, description, and responsibility columns</li>
-                <li><strong>Optional:</strong> Priority, status, due dates, management responses</li>
+                <li><strong>{t("upload.minimum")}</strong> {t("upload.minimumRequirement")}</li>
+                <li><strong>{t("upload.recommended")}</strong> {t("upload.recommendedRequirement")}</li>
+                <li><strong>{t("upload.optional")}</strong> {t("upload.optionalRequirement")}</li>
               </ul>
             </div>
           </div>

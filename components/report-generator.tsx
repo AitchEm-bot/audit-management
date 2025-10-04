@@ -12,6 +12,9 @@ import { Input } from "@/components/ui/input"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Download, FileSpreadsheet, Calendar, Filter, BarChart3 } from "lucide-react"
 import { format } from "date-fns"
+import { useLanguage } from "@/contexts/language-context"
+import { useTranslation } from "@/lib/translations"
+import { translateDepartment } from "@/lib/ticket-utils"
 
 interface ReportFilters {
   status: string[]
@@ -29,6 +32,8 @@ interface ReportOptions {
 }
 
 export function ReportGenerator() {
+  const { locale } = useLanguage()
+  const { t } = useTranslation(locale)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -277,10 +282,10 @@ export function ReportGenerator() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileSpreadsheet className="h-5 w-5" />
-            Generate Audit Report
+            {t("reports.generateAuditReport")}
           </CardTitle>
           <CardDescription>
-            Export audit tickets and metrics to Excel format with customizable filters and options
+            {t("reports.exportAuditTickets")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -290,36 +295,39 @@ export function ReportGenerator() {
               <div className="flex items-center justify-between">
                 <h3 className="font-medium flex items-center gap-2">
                   <Filter className="h-4 w-4" />
-                  Filters
+                  {t("reports.filters")}
                 </h3>
                 {hasFilters && (
                   <Button variant="outline" size="sm" onClick={clearFilters}>
-                    Clear All
+                    {t("reports.clearAll")}
                   </Button>
                 )}
               </div>
 
               <div className="space-y-3">
                 <div>
-                  <Label className="text-sm font-medium">Status</Label>
+                  <Label className="text-sm font-medium">{t("reports.statusFilter")}</Label>
                   <div className="grid grid-cols-2 gap-2 mt-2">
-                    {["open", "in_progress", "resolved", "closed"].map((status) => (
-                      <div key={status} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`status-${status}`}
-                          checked={filters.status.includes(status)}
-                          onCheckedChange={(checked) => handleStatusChange(status, checked as boolean)}
-                        />
-                        <Label htmlFor={`status-${status}`} className="text-sm capitalize">
-                          {status.replace("_", " ")}
-                        </Label>
-                      </div>
-                    ))}
+                    {["open", "in_progress", "resolved", "closed"].map((status) => {
+                      const statusKey = status === "in_progress" ? "statusInProgress" : `status${status.charAt(0).toUpperCase() + status.slice(1)}`
+                      return (
+                        <div key={status} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`status-${status}`}
+                            checked={filters.status.includes(status)}
+                            onCheckedChange={(checked) => handleStatusChange(status, checked as boolean)}
+                          />
+                          <Label htmlFor={`status-${status}`} className="text-sm">
+                            {t(`tickets.${statusKey}`)}
+                          </Label>
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
 
                 <div>
-                  <Label className="text-sm font-medium">Priority</Label>
+                  <Label className="text-sm font-medium">{t("reports.priorityFilter")}</Label>
                   <div className="grid grid-cols-2 gap-2 mt-2">
                     {["low", "medium", "high", "critical"].map((priority) => (
                       <div key={priority} className="flex items-center space-x-2">
@@ -328,8 +336,8 @@ export function ReportGenerator() {
                           checked={filters.priority.includes(priority)}
                           onCheckedChange={(checked) => handlePriorityChange(priority, checked as boolean)}
                         />
-                        <Label htmlFor={`priority-${priority}`} className="text-sm capitalize">
-                          {priority}
+                        <Label htmlFor={`priority-${priority}`} className="text-sm">
+                          {t(`tickets.priority${priority.charAt(0).toUpperCase() + priority.slice(1)}`)}
                         </Label>
                       </div>
                     ))}
@@ -337,7 +345,7 @@ export function ReportGenerator() {
                 </div>
 
                 <div>
-                  <Label className="text-sm font-medium">Department</Label>
+                  <Label className="text-sm font-medium">{t("reports.departmentFilter")}</Label>
                   <div className="grid grid-cols-1 gap-2 mt-2 max-h-32 overflow-y-auto">
                     {departments.map((department) => (
                       <div key={department} className="flex items-center space-x-2">
@@ -347,7 +355,7 @@ export function ReportGenerator() {
                           onCheckedChange={(checked) => handleDepartmentChange(department, checked as boolean)}
                         />
                         <Label htmlFor={`dept-${department}`} className="text-sm">
-                          {department}
+                          {translateDepartment(department, t)}
                         </Label>
                       </div>
                     ))}
@@ -357,12 +365,12 @@ export function ReportGenerator() {
                 <div>
                   <Label className="text-sm font-medium flex items-center gap-2">
                     <Calendar className="h-4 w-4" />
-                    Date Range
+                    {t("reports.dateRangeFilter")}
                   </Label>
                   <div className="grid grid-cols-2 gap-2 mt-2">
                     <div>
                       <Label htmlFor="start-date" className="text-xs text-muted-foreground">
-                        Start Date
+                        {t("reports.startDate")}
                       </Label>
                       <Input
                         id="start-date"
@@ -381,7 +389,7 @@ export function ReportGenerator() {
                     </div>
                     <div>
                       <Label htmlFor="end-date" className="text-xs text-muted-foreground">
-                        End Date
+                        {t("reports.endDate")}
                       </Label>
                       <Input
                         id="end-date"
@@ -407,7 +415,7 @@ export function ReportGenerator() {
             <div className="space-y-4">
               <h3 className="font-medium flex items-center gap-2">
                 <BarChart3 className="h-4 w-4" />
-                Report Options
+                {t("reports.reportOptions")}
               </h3>
 
               <div className="space-y-3">
@@ -420,7 +428,7 @@ export function ReportGenerator() {
                     }
                   />
                   <Label htmlFor="include-metrics" className="text-sm">
-                    Include metrics and statistics
+                    {t("reports.includeMetrics")}
                   </Label>
                 </div>
 
@@ -433,20 +441,20 @@ export function ReportGenerator() {
                     }
                   />
                   <Label htmlFor="include-comments" className="text-sm">
-                    Include ticket comments
+                    {t("reports.includeComments")}
                   </Label>
                 </div>
               </div>
 
               <div className="bg-muted/50 rounded-lg p-4">
-                <h4 className="font-medium text-sm mb-2">Report Preview</h4>
+                <h4 className="font-medium text-sm mb-2">{t("reports.reportPreview")}</h4>
                 <div className="text-sm text-muted-foreground space-y-1">
-                  <p>Total tickets in database: {ticketCount}</p>
-                  <p>Worksheets to include:</p>
+                  <p>{t("reports.totalTicketsInDatabase", { count: ticketCount })}</p>
+                  <p>{t("reports.worksheetsToInclude")}</p>
                   <ul className="list-disc list-inside ml-2 space-y-1">
-                    <li>Audit Tickets (main data)</li>
-                    {options.includeMetrics && <li>Metrics & Statistics</li>}
-                    {options.includeComments && <li>Comments</li>}
+                    <li>{t("reports.auditTicketsSheet")}</li>
+                    {options.includeMetrics && <li>{t("reports.metricsSheet")}</li>}
+                    {options.includeComments && <li>{t("reports.commentsSheet")}</li>}
                   </ul>
                 </div>
               </div>
@@ -470,12 +478,12 @@ export function ReportGenerator() {
               {loading ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  Generating...
+                  {t("reports.generating")}
                 </>
               ) : (
                 <>
                   <Download className="h-4 w-4" />
-                  Generate Excel Report
+                  {t("reports.generateExcelReport")}
                 </>
               )}
             </Button>

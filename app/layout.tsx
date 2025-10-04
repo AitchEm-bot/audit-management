@@ -6,6 +6,7 @@ import { AuthProvider } from "@/hooks/use-auth"
 import { Navigation } from "@/components/navigation"
 import { NavigationLoading } from "@/components/navigation-loading"
 import { LanguageProvider } from "@/contexts/language-context"
+import { cookies } from "next/headers"
 
 const inter = Inter({
   variable: "--font-inter",
@@ -18,13 +19,17 @@ export const metadata: Metadata = {
     generator: 'v0.app'
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const cookieStore = await cookies()
+  const locale = (cookieStore.get("locale")?.value as "en" | "ar") || "en"
+  const dir = locale === "ar" ? "rtl" : "ltr"
+
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={locale} dir={dir} suppressHydrationWarning>
       <body className={`${inter.variable} font-sans antialiased`}>
         <LanguageProvider>
           <AuthProvider>

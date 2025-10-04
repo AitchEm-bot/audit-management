@@ -8,7 +8,10 @@ import { Progress } from "@/components/ui/progress"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts"
 import { FileText, AlertTriangle, CheckCircle, Clock, TrendingUp, Users, Calendar, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { format } from "date-fns"
+import { useLanguage } from "@/contexts/language-context"
+import { useTranslation } from "@/lib/translations"
+import { formatDateTime } from "@/lib/date-utils"
+import { translateDepartment } from "@/lib/ticket-utils"
 
 interface TicketStats {
   total: number
@@ -50,6 +53,8 @@ interface DashboardMetricsProps {
 }
 
 export function DashboardMetrics({ initialStats }: DashboardMetricsProps) {
+  const { locale } = useLanguage()
+  const { t } = useTranslation(locale)
   const [stats, setStats] = useState<TicketStats>(
     initialStats || {
       total: 0,
@@ -197,21 +202,21 @@ export function DashboardMetrics({ initialStats }: DashboardMetricsProps) {
   }
 
   const statusData: ChartData[] = [
-    { name: "Open", value: stats.open, color: STATUS_COLORS.open },
-    { name: "In Progress", value: stats.in_progress, color: STATUS_COLORS.in_progress },
-    { name: "Resolved", value: stats.resolved, color: STATUS_COLORS.resolved },
-    { name: "Closed", value: stats.closed, color: STATUS_COLORS.closed },
+    { name: t("dashboard.openTickets"), value: stats.open, color: STATUS_COLORS.open },
+    { name: t("dashboard.inProgress"), value: stats.in_progress, color: STATUS_COLORS.in_progress },
+    { name: t("dashboard.resolved"), value: stats.resolved, color: STATUS_COLORS.resolved },
+    { name: t("dashboard.closed"), value: stats.closed, color: STATUS_COLORS.closed },
   ]
 
   const priorityData: ChartData[] = [
-    { name: "Critical", value: stats.critical, color: PRIORITY_COLORS.critical },
-    { name: "High", value: stats.high, color: PRIORITY_COLORS.high },
-    { name: "Medium", value: stats.medium, color: PRIORITY_COLORS.medium },
-    { name: "Low", value: stats.low, color: PRIORITY_COLORS.low },
+    { name: t("dashboard.criticalPriority"), value: stats.critical, color: PRIORITY_COLORS.critical },
+    { name: t("dashboard.highPriority"), value: stats.high, color: PRIORITY_COLORS.high },
+    { name: t("dashboard.mediumPriority"), value: stats.medium, color: PRIORITY_COLORS.medium },
+    { name: t("dashboard.lowPriority"), value: stats.low, color: PRIORITY_COLORS.low },
   ]
 
   const departmentData: ChartData[] = Object.entries(stats.departments).map(([name, value]) => ({
-    name,
+    name: translateDepartment(name, t),
     value,
   }))
 
@@ -239,7 +244,7 @@ export function DashboardMetrics({ initialStats }: DashboardMetricsProps) {
       {/* Refresh Button and Last Updated */}
       <div className="flex justify-between items-center">
         <div className="text-sm text-muted-foreground">
-          Last updated: {format(lastRefresh, "PPp")}
+          {t("common.lastUpdated")}: {formatDateTime(lastRefresh, locale)}
         </div>
         <Button
           variant="outline"
@@ -248,7 +253,7 @@ export function DashboardMetrics({ initialStats }: DashboardMetricsProps) {
           disabled={loading}
         >
           <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-          Refresh Stats
+          {t("common.refreshStats")}
         </Button>
       </div>
 
@@ -256,45 +261,45 @@ export function DashboardMetrics({ initialStats }: DashboardMetricsProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Tickets</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("dashboard.totalTickets")}</CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.total}</div>
-            <p className="text-xs text-muted-foreground">All audit tickets</p>
+            <p className="text-xs text-muted-foreground">{t("common.allAuditTickets")}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Tickets</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("common.activeTickets")}</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.open + stats.in_progress}</div>
-            <p className="text-xs text-muted-foreground">Open + In Progress</p>
+            <p className="text-xs text-muted-foreground">{t("common.openPlusInProgress")}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Critical Issues</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("common.criticalIssues")}</CardTitle>
             <AlertTriangle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">{stats.critical}</div>
-            <p className="text-xs text-muted-foreground">Require immediate attention</p>
+            <p className="text-xs text-muted-foreground">{t("common.requireImmediateAttention")}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completion Rate</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("common.completionRate")}</CardTitle>
             <CheckCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">{completionRate.toFixed(1)}%</div>
-            <p className="text-xs text-muted-foreground">Resolved + Closed</p>
+            <p className="text-xs text-muted-foreground">{t("common.resolvedPlusClosed")}</p>
           </CardContent>
         </Card>
       </div>
@@ -307,12 +312,12 @@ export function DashboardMetrics({ initialStats }: DashboardMetricsProps) {
               <CardHeader>
                 <CardTitle className="text-orange-800 flex items-center gap-2">
                   <Calendar className="h-5 w-5" />
-                  Overdue Tickets
+                  {t("common.overdueTickets")}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-orange-600 mb-2">{stats.overdue}</div>
-                <p className="text-sm text-orange-700">Tickets past their due date that need immediate attention</p>
+                <p className="text-sm text-orange-700">{t("common.overdueTicketsDesc")}</p>
               </CardContent>
             </Card>
           )}
@@ -322,12 +327,12 @@ export function DashboardMetrics({ initialStats }: DashboardMetricsProps) {
               <CardHeader>
                 <CardTitle className="text-red-800 flex items-center gap-2">
                   <AlertTriangle className="h-5 w-5" />
-                  Critical Priority
+                  {t("common.criticalPriority")}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-red-600 mb-2">{stats.critical}</div>
-                <p className="text-sm text-red-700">High-priority issues requiring urgent resolution</p>
+                <p className="text-sm text-red-700">{t("common.criticalPriorityDesc")}</p>
               </CardContent>
             </Card>
           )}
@@ -337,13 +342,13 @@ export function DashboardMetrics({ initialStats }: DashboardMetricsProps) {
       {/* Progress Overview */}
       <Card>
         <CardHeader>
-          <CardTitle>Progress Overview</CardTitle>
-          <CardDescription>Visual breakdown of ticket completion status</CardDescription>
+          <CardTitle>{t("common.progressOverview")}</CardTitle>
+          <CardDescription>{t("common.progressOverviewDesc")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
-              <span>Overall Completion</span>
+              <span>{t("common.overallCompletion")}</span>
               <span>{completionRate.toFixed(1)}%</span>
             </div>
             <Progress value={completionRate} className="h-2" />
@@ -352,19 +357,19 @@ export function DashboardMetrics({ initialStats }: DashboardMetricsProps) {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-              <span>Open: {stats.open}</span>
+              <span>{t("dashboard.openTickets")}: {stats.open}</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-purple-500"></div>
-              <span>In Progress: {stats.in_progress}</span>
+              <span>{t("dashboard.inProgress")}: {stats.in_progress}</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-green-500"></div>
-              <span>Resolved: {stats.resolved}</span>
+              <span>{t("dashboard.resolved")}: {stats.resolved}</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-gray-500"></div>
-              <span>Closed: {stats.closed}</span>
+              <span>{t("dashboard.closed")}: {stats.closed}</span>
             </div>
           </div>
         </CardContent>
@@ -374,8 +379,8 @@ export function DashboardMetrics({ initialStats }: DashboardMetricsProps) {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Status Distribution</CardTitle>
-            <CardDescription>Breakdown of tickets by current status</CardDescription>
+            <CardTitle>{t("dashboard.statusDistribution")}</CardTitle>
+            <CardDescription>{t("dashboard.viewTicketsDescription")}</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={350}>
@@ -392,7 +397,7 @@ export function DashboardMetrics({ initialStats }: DashboardMetricsProps) {
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value, name) => [`${value} tickets`, name]} />
+                <Tooltip formatter={(value, name) => [`${value} ${t("tickets.ticketPlural")}`, name]} />
                 <Legend
                   verticalAlign="middle"
                   align="right"
@@ -407,8 +412,8 @@ export function DashboardMetrics({ initialStats }: DashboardMetricsProps) {
 
         <Card>
           <CardHeader>
-            <CardTitle>Priority Distribution</CardTitle>
-            <CardDescription>Breakdown of tickets by priority level</CardDescription>
+            <CardTitle>{t("dashboard.priorityDistribution")}</CardTitle>
+            <CardDescription>{t("dashboard.viewTicketsDescription")}</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={350}>
@@ -434,9 +439,9 @@ export function DashboardMetrics({ initialStats }: DashboardMetricsProps) {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
-              Department Breakdown
+              {t("dashboard.departmentDistribution")}
             </CardTitle>
-            <CardDescription>Number of tickets assigned to each department</CardDescription>
+            <CardDescription>{t("dashboard.viewTicketsDescription")}</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={350}>
@@ -453,7 +458,7 @@ export function DashboardMetrics({ initialStats }: DashboardMetricsProps) {
                   tickFormatter={(value) => value.length > 12 ? `${value.substring(0, 9)}...` : value}
                 />
                 <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip formatter={(value, name) => [`${value} audit tickets`, `Department: ${name}`]} />
+                <Tooltip formatter={(value, name) => [`${value} ${t("common.allAuditTickets")}`, `${t("tickets.department")}: ${name}`]} />
                 <Bar dataKey="value" fill="#3b82f6" />
               </BarChart>
             </ResponsiveContainer>
@@ -466,16 +471,16 @@ export function DashboardMetrics({ initialStats }: DashboardMetricsProps) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5" />
-            Recent Activity
+            {t("common.recentActivity")}
           </CardTitle>
-          <CardDescription>Tickets created in the last 7 days</CardDescription>
+          <CardDescription>{t("common.recentActivityDesc")}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="text-3xl font-bold mb-2">{stats.recentActivity}</div>
           <p className="text-sm text-muted-foreground">
             {stats.recentActivity > 0
-              ? `${stats.recentActivity} new tickets created this week`
-              : "No new tickets created this week"}
+              ? t("common.newTicketsThisWeek", { count: stats.recentActivity.toString() })
+              : t("common.noNewTicketsThisWeek")}
           </p>
         </CardContent>
       </Card>

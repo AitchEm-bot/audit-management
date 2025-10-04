@@ -16,9 +16,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { GitCommit, MessageSquare, Edit, CheckCircle, AlertCircle, FileIcon, Activity, Pencil, Trash2, Save, X } from "lucide-react"
-import { format } from "date-fns"
 import { updateComment, deleteComment } from "@/app/tickets/[id]/actions"
 import { useRouter } from "next/navigation"
+import { useLanguage } from "@/contexts/language-context"
+import { useTranslation } from "@/lib/translations"
+import { formatDateTime } from "@/lib/date-utils"
+import { translateStatus, translatePriority } from "@/lib/ticket-utils"
 
 interface TicketActivity {
   id: string
@@ -87,6 +90,8 @@ export default function TicketActivitiesClient({
   isTicketClosed = false,
 }: TicketActivitiesClientProps) {
   const router = useRouter()
+  const { locale } = useLanguage()
+  const { t } = useTranslation(locale)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editContent, setEditContent] = useState("")
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -154,11 +159,11 @@ export default function TicketActivitiesClient({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Activity className="h-5 w-5" />
-            Activity Timeline
+            {t("tickets.activityTimeline")}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-gray-500 text-center py-8">No activities yet. Be the first to comment!</p>
+          <p className="text-gray-500 text-center py-8">{t("tickets.noActivitiesYet")}</p>
         </CardContent>
       </Card>
     )
@@ -170,7 +175,7 @@ export default function TicketActivitiesClient({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Activity className="h-5 w-5" />
-            Activity Timeline ({activities.length})
+            {t("tickets.activityTimeline")} ({activities.length})
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -195,10 +200,10 @@ export default function TicketActivitiesClient({
                       {activity.profiles?.full_name || "Unknown User"}
                     </span>
                     <Badge variant="outline" className="text-xs">
-                      {activity.activity_type.replace('_', ' ')}
+                      {t(`tickets.activity${activity.activity_type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join('')}`)}
                     </Badge>
                     <span className="text-xs text-gray-500">
-                      {format(new Date(activity.created_at), "MMM d, yyyy 'at' h:mm a")}
+                      {formatDateTime(activity.created_at, locale)}
                     </span>
                   </div>
 
@@ -220,7 +225,7 @@ export default function TicketActivitiesClient({
                                 disabled={isUpdating || !editContent.trim()}
                               >
                                 <Save className="h-3 w-3 mr-1" />
-                                Save
+                                {t("common.save")}
                               </Button>
                               <Button
                                 size="sm"
@@ -229,7 +234,7 @@ export default function TicketActivitiesClient({
                                 disabled={isUpdating}
                               >
                                 <X className="h-3 w-3 mr-1" />
-                                Cancel
+                                {t("common.cancel")}
                               </Button>
                             </div>
                           </div>
@@ -245,7 +250,7 @@ export default function TicketActivitiesClient({
                                   className="h-7 text-xs"
                                 >
                                   <Pencil className="h-3 w-3 mr-1" />
-                                  Edit
+                                  {t("common.edit")}
                                 </Button>
                                 <Button
                                   size="sm"
@@ -254,7 +259,7 @@ export default function TicketActivitiesClient({
                                   className="h-7 text-xs text-red-600 hover:text-red-700"
                                 >
                                   <Trash2 className="h-3 w-3 mr-1" />
-                                  Delete
+                                  {t("common.delete")}
                                 </Button>
                               </div>
                             )}
@@ -265,13 +270,13 @@ export default function TicketActivitiesClient({
 
                     {activity.activity_type === "status_change" && (
                       <p>
-                        Changed status from{" "}
+                        {t("tickets.changedStatusFrom")}{" "}
                         <Badge variant="outline" className="text-xs">
-                          {activity.old_value}
+                          {activity.old_value ? translateStatus(activity.old_value, t) : activity.old_value}
                         </Badge>{" "}
-                        to{" "}
+                        {t("tickets.to")}{" "}
                         <Badge variant="outline" className="text-xs">
-                          {activity.new_value}
+                          {activity.new_value ? translateStatus(activity.new_value, t) : activity.new_value}
                         </Badge>
                       </p>
                     )}
@@ -279,26 +284,26 @@ export default function TicketActivitiesClient({
                     {activity.activity_type === "assignment_change" && (
                       <p>
                         {activity.old_value
-                          ? `Reassigned from ${activity.old_value} to ${activity.new_value}`
-                          : `Assigned to ${activity.new_value}`}
+                          ? `${t("tickets.reassignedFrom")} ${activity.old_value} ${t("tickets.to")} ${activity.new_value}`
+                          : `${t("tickets.assignedToUser")} ${activity.new_value}`}
                       </p>
                     )}
 
                     {activity.activity_type === "priority_change" && (
                       <p>
-                        Changed priority from{" "}
+                        {t("tickets.changedPriorityFrom")}{" "}
                         <Badge variant="outline" className="text-xs">
-                          {activity.old_value}
+                          {activity.old_value ? translatePriority(activity.old_value, t) : activity.old_value}
                         </Badge>{" "}
-                        to{" "}
+                        {t("tickets.to")}{" "}
                         <Badge variant="outline" className="text-xs">
-                          {activity.new_value}
+                          {activity.new_value ? translatePriority(activity.new_value, t) : activity.new_value}
                         </Badge>
                       </p>
                     )}
 
                     {activity.activity_type === "ticket_created" && (
-                      <p>Created this ticket</p>
+                      <p>{t("tickets.createdThisTicket")}</p>
                     )}
 
                     {!["comment", "status_change", "assignment_change", "priority_change", "ticket_created"].includes(activity.activity_type) && (
@@ -315,19 +320,19 @@ export default function TicketActivitiesClient({
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Comment</AlertDialogTitle>
+            <AlertDialogTitle>{t("tickets.deleteComment")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this comment? This action cannot be undone.
+              {t("tickets.deleteCommentConfirm")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isUpdating}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isUpdating}>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               disabled={isUpdating}
               className="bg-red-600 hover:bg-red-700"
             >
-              {isUpdating ? "Deleting..." : "Delete"}
+              {isUpdating ? t("tickets.deleting") : t("common.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

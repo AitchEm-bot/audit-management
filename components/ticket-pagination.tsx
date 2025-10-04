@@ -3,6 +3,8 @@
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight } from "lucide-react"
+import { useLanguage } from "@/contexts/language-context"
+import { useTranslation } from "@/lib/translations"
 
 interface TicketPaginationProps {
   totalCount: number
@@ -14,6 +16,8 @@ interface TicketPaginationProps {
 export function TicketPagination({ totalCount, totalPages, currentPage, pageSize = 20 }: TicketPaginationProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { locale } = useLanguage()
+  const { t } = useTranslation(locale)
 
   const navigateToPage = (page: number) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -21,11 +25,17 @@ export function TicketPagination({ totalCount, totalPages, currentPage, pageSize
     router.push(`/tickets?${params.toString()}`)
   }
 
+  const ticketWord = totalCount === 1 ? t("tickets.ticketSingular") : t("tickets.ticketPlural")
+
   if (totalPages <= 1) {
     return (
       <div className="flex items-center justify-center mt-4">
         <div className="text-sm text-muted-foreground">
-          Showing {totalCount} {totalCount === 1 ? "ticket" : "tickets"}
+          {t("tickets.showing", {
+            start: totalCount.toString(),
+            end: totalCount.toString(),
+            total: `${totalCount} ${ticketWord}`
+          })}
         </div>
       </div>
     )
@@ -34,8 +44,11 @@ export function TicketPagination({ totalCount, totalPages, currentPage, pageSize
   return (
     <div className="flex items-center justify-between mt-4">
       <div className="text-sm text-muted-foreground">
-        Showing {Math.min((currentPage - 1) * pageSize + 1, totalCount)} to{" "}
-        {Math.min(currentPage * pageSize, totalCount)} of {totalCount} tickets
+        {t("tickets.showing", {
+          start: Math.min((currentPage - 1) * pageSize + 1, totalCount).toString(),
+          end: Math.min(currentPage * pageSize, totalCount).toString(),
+          total: `${totalCount} ${ticketWord}`
+        })}
       </div>
       <div className="flex gap-2">
         <Button
@@ -45,7 +58,7 @@ export function TicketPagination({ totalCount, totalPages, currentPage, pageSize
           disabled={currentPage === 1}
         >
           <ChevronLeft className="h-4 w-4" />
-          Previous
+          {t("common.previous")}
         </Button>
         <div className="flex items-center gap-1">
           {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
@@ -72,7 +85,7 @@ export function TicketPagination({ totalCount, totalPages, currentPage, pageSize
           onClick={() => navigateToPage(Math.min(totalPages, currentPage + 1))}
           disabled={currentPage === totalPages}
         >
-          Next
+          {t("common.next")}
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>

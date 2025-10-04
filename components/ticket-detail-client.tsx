@@ -18,12 +18,15 @@ import {
   AlertCircle,
   Send,
 } from "lucide-react"
-import { format } from "date-fns"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { addComment, updateTicketStatus as updateTicketStatusAction } from "@/app/tickets/[id]/actions"
 import { CloseTicketDialog } from "@/components/close-ticket-dialog"
 import { createClient } from "@/lib/supabase/client"
+import { useLanguage } from "@/contexts/language-context"
+import { useTranslation } from "@/lib/translations"
+import { formatDate } from "@/lib/date-utils"
+import { translateStatus, translatePriority, translateDepartment } from "@/lib/ticket-utils"
 
 interface Ticket {
   id: string
@@ -69,6 +72,8 @@ const statusColors = {
 
 function CommentSubmitButton() {
   const { pending } = useFormStatus()
+  const { locale } = useLanguage()
+  const { t } = useTranslation(locale)
 
   return (
     <Button
@@ -77,7 +82,7 @@ function CommentSubmitButton() {
       disabled={pending}
     >
       <Send className="h-4 w-4" />
-      {pending ? "Posting..." : "Comment"}
+      {pending ? t("tickets.posting") : t("tickets.comment")}
     </Button>
   )
 }
@@ -85,6 +90,8 @@ function CommentSubmitButton() {
 export function TicketDetailClient({ ticket, commentCount: initialCommentCount = 0 }: TicketDetailClientProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { locale } = useLanguage()
+  const { t } = useTranslation(locale)
   const [showCloseDialog, setShowCloseDialog] = useState(false)
   const [commentCount, setCommentCount] = useState(initialCommentCount)
   const [statusUpdating, setStatusUpdating] = useState(false)
@@ -136,7 +143,7 @@ export function TicketDetailClient({ ticket, commentCount: initialCommentCount =
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="sm" onClick={() => router.back()}>
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back
+          {t("common.back")}
         </Button>
         <div className="flex-1">
           <h1 className="text-2xl font-bold">{ticket.title}</h1>
@@ -145,7 +152,7 @@ export function TicketDetailClient({ ticket, commentCount: initialCommentCount =
         <Button variant="outline" asChild>
           <Link href={`/tickets/${ticket.id}/edit`}>
             <Edit className="h-4 w-4 mr-2" />
-            Edit
+            {t("common.edit")}
           </Link>
         </Button>
       </div>
@@ -175,7 +182,7 @@ export function TicketDetailClient({ ticket, commentCount: initialCommentCount =
           {/* Ticket Description */}
           <Card>
             <CardHeader>
-              <CardTitle>Description</CardTitle>
+              <CardTitle>{t("tickets.description")}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="whitespace-pre-wrap text-sm">{ticket.description}</p>
@@ -186,16 +193,16 @@ export function TicketDetailClient({ ticket, commentCount: initialCommentCount =
           {ticket.status !== 'closed' && (
             <Card>
               <CardHeader>
-                <CardTitle>Add Comment</CardTitle>
+                <CardTitle>{t("tickets.addComment")}</CardTitle>
                 <CardDescription>
-                  Share updates, ask questions, or provide additional information
+                  {t("tickets.addCommentDescription")}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <form action={addComment.bind(null, ticket.id)} className="space-y-4">
                   <Textarea
                     name="content"
-                    placeholder="Write your comment here..."
+                    placeholder={t("tickets.commentPlaceholder")}
                     className="min-h-[100px]"
                     required
                   />
@@ -209,9 +216,9 @@ export function TicketDetailClient({ ticket, commentCount: initialCommentCount =
           {ticket.status === 'closed' && (
             <Card>
               <CardHeader>
-                <CardTitle>Comments Locked</CardTitle>
+                <CardTitle>{t("tickets.commentsLocked")}</CardTitle>
                 <CardDescription>
-                  This ticket is closed. Comments are locked and can no longer be edited or deleted.
+                  {t("tickets.commentsLockedDescription")}
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -223,11 +230,11 @@ export function TicketDetailClient({ ticket, commentCount: initialCommentCount =
           {/* Status and Priority */}
           <Card>
             <CardHeader>
-              <CardTitle>Details</CardTitle>
+              <CardTitle>{t("tickets.details")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-muted-foreground">Status</label>
+                <label className="text-sm font-medium text-muted-foreground">{t("tickets.status")}</label>
                 <div className="mt-1">
                   <Select
                     value={ticket.status}
@@ -238,52 +245,52 @@ export function TicketDetailClient({ ticket, commentCount: initialCommentCount =
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="open">Open</SelectItem>
-                      <SelectItem value="in_progress">In Progress</SelectItem>
-                      <SelectItem value="resolved">Resolved</SelectItem>
-                      <SelectItem value="closed">Closed</SelectItem>
+                      <SelectItem value="open">{t("tickets.statusOpen")}</SelectItem>
+                      <SelectItem value="in_progress">{t("tickets.statusInProgress")}</SelectItem>
+                      <SelectItem value="resolved">{t("tickets.statusResolved")}</SelectItem>
+                      <SelectItem value="closed">{t("tickets.statusClosed")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
               <div>
-                <label className="text-sm font-medium text-muted-foreground">Priority</label>
+                <label className="text-sm font-medium text-muted-foreground">{t("tickets.priority")}</label>
                 <div className="mt-1">
                   <Badge className={priorityColors[ticket.priority as keyof typeof priorityColors]}>
-                    {ticket.priority}
+                    {translatePriority(ticket.priority, t)}
                   </Badge>
                 </div>
               </div>
 
               <div>
-                <label className="text-sm font-medium text-muted-foreground">Department</label>
-                <p className="text-sm">{ticket.department}</p>
+                <label className="text-sm font-medium text-muted-foreground">{t("tickets.department")}</label>
+                <p className="text-sm">{translateDepartment(ticket.department, t)}</p>
               </div>
 
               <div>
-                <label className="text-sm font-medium text-muted-foreground">Created</label>
+                <label className="text-sm font-medium text-muted-foreground">{t("tickets.created")}</label>
                 <div className="flex items-center gap-2 text-sm">
                   <Calendar className="h-4 w-4" />
-                  {format(new Date(ticket.created_at), "MMM d, yyyy")}
+                  {formatDate(ticket.created_at, locale)}
                 </div>
               </div>
 
               {ticket.due_date && (
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Due Date</label>
+                  <label className="text-sm font-medium text-muted-foreground">{t("tickets.dueDate")}</label>
                   <div className="flex items-center gap-2 text-sm">
                     <Clock className="h-4 w-4" />
-                    {format(new Date(ticket.due_date), "MMM d, yyyy")}
+                    {formatDate(ticket.due_date, locale)}
                   </div>
                 </div>
               )}
 
               <div>
-                <label className="text-sm font-medium text-muted-foreground">Assigned To</label>
+                <label className="text-sm font-medium text-muted-foreground">{t("tickets.assignedTo")}</label>
                 <div className="flex items-center gap-2 text-sm">
                   <User className="h-4 w-4" />
-                  {ticket.assigned_profile?.full_name || "Unassigned"}
+                  {ticket.assigned_profile?.full_name || t("tickets.unassigned")}
                 </div>
               </div>
             </CardContent>
