@@ -35,6 +35,7 @@ interface ReportOptions {
 export function ReportGenerator() {
   const { locale } = useLanguage()
   const { t } = useTranslation(locale)
+  const isRTL = locale === "ar"
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -312,7 +313,7 @@ export function ReportGenerator() {
                     {["open", "in_progress", "resolved", "closed"].map((status) => {
                       const statusKey = status === "in_progress" ? "statusInProgress" : `status${status.charAt(0).toUpperCase() + status.slice(1)}`
                       return (
-                        <div key={status} className="flex items-center space-x-2">
+                        <div key={status} className={`flex items-center gap-2`}>
                           <Checkbox
                             id={`status-${status}`}
                             checked={filters.status.includes(status)}
@@ -331,7 +332,7 @@ export function ReportGenerator() {
                   <Label className="text-sm font-medium">{t("reports.priorityFilter")}</Label>
                   <div className="grid grid-cols-2 gap-2 mt-2">
                     {["low", "medium", "high", "critical"].map((priority) => (
-                      <div key={priority} className="flex items-center space-x-2">
+                      <div key={priority} className={`flex items-center gap-2`}>
                         <Checkbox
                           id={`priority-${priority}`}
                           checked={filters.priority.includes(priority)}
@@ -349,7 +350,7 @@ export function ReportGenerator() {
                   <Label className="text-sm font-medium">{t("reports.departmentFilter")}</Label>
                   <div className="grid grid-cols-1 gap-2 mt-2 max-h-32 overflow-y-auto">
                     {departments.map((department) => (
-                      <div key={department} className="flex items-center space-x-2">
+                      <div key={department} className={`flex items-center gap-2`}>
                         <Checkbox
                           id={`dept-${department}`}
                           checked={filters.department.includes(department)}
@@ -420,7 +421,7 @@ export function ReportGenerator() {
               </h3>
 
               <div className="space-y-3">
-                <div className="flex items-center space-x-2">
+                <div className={`flex items-center gap-2`}>
                   <Checkbox
                     id="include-metrics"
                     checked={options.includeMetrics}
@@ -433,7 +434,7 @@ export function ReportGenerator() {
                   </Label>
                 </div>
 
-                <div className="flex items-center space-x-2">
+                <div className={`flex items-center gap-2`}>
                   <Checkbox
                     id="include-comments"
                     checked={options.includeComments}
