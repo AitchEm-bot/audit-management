@@ -11,7 +11,7 @@ interface Profile {
   full_name: string
   email: string
   department: string | null
-  role: "user" | "admin" | "manager"
+  role: "emp" | "manager" | "exec" | "admin"
   created_at: string
 }
 

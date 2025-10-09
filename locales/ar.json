@@ -344,5 +344,12 @@
     "invalidDateFormat": "تنسيق التاريخ غير صالح. استخدم يوم/شهر/سنة",
     "dateInputPlaceholder": "يوم/شهر/سنة",
     "pickADate": "اختر تاريخ"
+  },
+  "roles": {
+    "emp": "موظف",
+    "manager": "مدير",
+    "exec": "تنفيذي",
+    "admin": "مسؤول",
+    "administrator": "مسؤول النظام"
   }
 }

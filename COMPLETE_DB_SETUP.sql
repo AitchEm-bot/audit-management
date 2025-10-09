@@ -26,7 +26,7 @@ CREATE TABLE public.profiles (
   email TEXT,
   full_name TEXT,
   department VARCHAR(100),
-  role VARCHAR(50) DEFAULT 'user' CHECK (role IN ('user', 'admin', 'manager')),
+  role VARCHAR(50) DEFAULT 'emp' CHECK (role IN ('emp', 'manager', 'exec', 'admin')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

@@ -344,5 +344,12 @@
     "invalidDateFormat": "Invalid date format. Use DD/MM/YYYY",
     "dateInputPlaceholder": "DD/MM/YYYY",
     "pickADate": "Pick a date"
+  },
+  "roles": {
+    "emp": "Employee",
+    "manager": "Manager",
+    "exec": "Executive",
+    "admin": "Admin",
+    "administrator": "Administrator"
   }
 }

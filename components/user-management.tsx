@@ -7,13 +7,15 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useEffect, useState } from "react"
 import { useAuth } from "@/hooks/use-auth"
+import { useLanguage } from "@/contexts/language-context"
+import { useTranslation } from "@/lib/translations"
 
 interface Profile {
   id: string
   full_name: string
   email: string
   department: string | null
-  role: "user" | "admin" | "manager"
+  role: "emp" | "manager" | "exec" | "admin"
   created_at: string
 }
 
@@ -21,6 +23,8 @@ export function UserManagement() {
   const [users, setUsers] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
   const { hasRole } = useAuth()
+  const { locale } = useLanguage()
+  const { t } = useTranslation(locale)
   const supabase = createClient()
 
   const fetchUsers = async () => {
@@ -76,9 +80,11 @@ export function UserManagement() {
     switch (role) {
       case "admin":
         return "destructive"
+      case "exec":
+        return "default"
       case "manager":
         return "default"
-      case "user":
+      case "emp":
         return "secondary"
       default:
         return "outline"
@@ -110,7 +116,7 @@ export function UserManagement() {
                 <TableCell>{user.email}</TableCell>
                 <TableCell>{user.department || "N/A"}</TableCell>
                 <TableCell>
-                  <Badge variant={getRoleBadgeVariant(user.role)}>{user.role}</Badge>
+                  <Badge variant={getRoleBadgeVariant(user.role)}>{t(`roles.${user.role}`)}</Badge>
                 </TableCell>
                 <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
                 <TableCell>
@@ -119,9 +125,10 @@ export function UserManagement() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="user">User</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="emp">{t("roles.emp")}</SelectItem>
+                      <SelectItem value="manager">{t("roles.manager")}</SelectItem>
+                      <SelectItem value="exec">{t("roles.exec")}</SelectItem>
+                      <SelectItem value="admin">{t("roles.admin")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </TableCell>

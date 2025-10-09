@@ -68,13 +68,15 @@ export function Navigation() {
                 <span
                   className={`text-xs px-2 py-1 rounded-full ${
                     profile.role === "admin"
-                      ? "bg-red-100 text-red-800"
-                      : profile.role === "manager"
-                        ? "bg-blue-100 text-blue-800"
-                        : "bg-gray-100 text-gray-800"
+                      ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                      : profile.role === "exec"
+                        ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
+                        : profile.role === "manager"
+                          ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                          : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
                   }`}
                 >
-                  {profile.role}
+                  {t(`roles.${profile.role}`)}
                 </span>
               </div>
             )}
