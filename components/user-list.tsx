@@ -78,23 +78,13 @@ export function UserList({ users, totalCount, totalPages, currentPage, departmen
   }
 
   const handleApprove = async (userId: string) => {
-    console.log("=== handleApprove called ===")
-    console.log("userId:", userId)
-
     setLoadingUserId(userId)
-    console.log("Loading state set for user:", userId)
-
     const result = await approveUser(userId)
-    console.log("approveUser result:", result)
-
     setLoadingUserId(null)
-    console.log("Loading state cleared")
 
     if (result?.error) {
-      console.log("Error in result:", result.error)
       setMessage({ type: 'error', text: result.error })
     } else {
-      console.log("Success! Refreshing router...")
       setMessage({ type: 'success', text: 'User approved successfully' })
       router.refresh()
     }
@@ -237,13 +227,14 @@ export function UserList({ users, totalCount, totalPages, currentPage, departmen
                                 )}
                               </Button>
 
-                              <DeleteUserDialog
-                                userId={user.id}
-                                userName={user.full_name}
-                                onDelete={() => handleDelete(user.id)}
-                                disabled={currentUserProfile?.id === user.id || loadingUserId === user.id}
-                                iconOnly={true}
-                              />
+                              <div onClick={(e) => e.stopPropagation()}>
+                                <DeleteUserDialog
+                                  userName={user.full_name}
+                                  onDelete={() => handleDelete(user.id)}
+                                  disabled={currentUserProfile?.id === user.id || loadingUserId === user.id}
+                                  iconOnly={true}
+                                />
+                              </div>
                             </>
                           )}
                         </div>

@@ -246,7 +246,6 @@ export function UserDetailClient({ user: initialUser }: UserDetailClientProps) {
                   </Button>
 
                   <DeleteUserDialog
-                    userId={user.id}
                     userName={user.full_name}
                     onDelete={handleDelete}
                     disabled={saving || currentUserProfile?.id === user.id}

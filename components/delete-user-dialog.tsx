@@ -16,20 +16,15 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Trash2 } from "lucide-react"
-import { useLanguage } from "@/contexts/language-context"
-import { useTranslation } from "@/lib/translations"
 
 interface DeleteUserDialogProps {
-  userId: string
   userName: string
   onDelete: () => Promise<void>
   disabled?: boolean
   iconOnly?: boolean
 }
 
-export function DeleteUserDialog({ userId, userName, onDelete, disabled, iconOnly = false }: DeleteUserDialogProps) {
-  const { locale } = useLanguage()
-  const { t } = useTranslation(locale)
+export function DeleteUserDialog({ userName, onDelete, disabled, iconOnly = false }: DeleteUserDialogProps) {
   const [open, setOpen] = useState(false)
   const [confirmText, setConfirmText] = useState("")
   const [isDeleting, setIsDeleting] = useState(false)
@@ -67,7 +62,7 @@ export function DeleteUserDialog({ userId, userName, onDelete, disabled, iconOnl
             variant="ghost"
             size="icon"
             disabled={disabled}
-            title={t("users.deleteUser")}
+            title="Delete User"
             className="text-destructive data-[state=open]:bg-destructive data-[state=open]:text-white"
             onMouseEnter={(e) => {
               if (!disabled) {
@@ -88,27 +83,27 @@ export function DeleteUserDialog({ userId, userName, onDelete, disabled, iconOnl
         ) : (
           <Button variant="destructive" size="sm" disabled={disabled}>
             <Trash2 className="h-4 w-4 mr-2" />
-            {t("users.deleteUser")}
+            Delete User
           </Button>
         )}
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{t("users.deleteUserTitle")}</AlertDialogTitle>
+          <AlertDialogTitle>Delete User Account</AlertDialogTitle>
           <AlertDialogDescription className="space-y-4">
-            <p>{t("users.deleteUserWarning", { name: userName })}</p>
+            <p>Are you sure you want to delete {userName}'s account? This will permanently remove all their data from the system.</p>
             <p className="font-semibold text-destructive">
-              {t("users.deleteUserWarning2")}
+              This action cannot be undone.
             </p>
             <div className="space-y-2 pt-4">
               <Label htmlFor="confirm-text">
-                {t("users.deleteUserConfirmLabel")} <code className="bg-muted px-2 py-1 rounded text-sm">confirm delete</code>
+                To confirm, type <code className="bg-muted px-2 py-1 rounded text-sm">confirm delete</code>
               </Label>
               <Input
                 id="confirm-text"
                 value={confirmText}
                 onChange={(e) => setConfirmText(e.target.value)}
-                placeholder={t("users.deleteUserConfirmPlaceholder")}
+                placeholder="Type 'confirm delete' to proceed"
                 autoComplete="off"
               />
             </div>
@@ -116,7 +111,7 @@ export function DeleteUserDialog({ userId, userName, onDelete, disabled, iconOnl
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isDeleting}>
-            {t("common.cancel")}
+            Cancel
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={(e) => {
@@ -124,15 +119,15 @@ export function DeleteUserDialog({ userId, userName, onDelete, disabled, iconOnl
               handleDelete()
             }}
             disabled={!isConfirmValid || isDeleting}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            className="bg-destructive text-white hover:bg-destructive/90"
           >
             {isDeleting ? (
               <>
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                {t("users.deleting")}
+                <span className="text-white">Deleting...</span>
               </>
             ) : (
-              t("users.deleteUser")
+              <span className="text-white">Delete User</span>
             )}
           </AlertDialogAction>
         </AlertDialogFooter>

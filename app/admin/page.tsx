@@ -86,9 +86,6 @@ export default async function AdminPage({ searchParams }: PageProps) {
   const totalCount = count || 0
   const totalPages = Math.ceil(totalCount / pageSize)
 
-  console.log(`Fetched ${users?.length || 0} users (page ${page}, total: ${totalCount})`)
-  console.log("Users data sample:", users?.map(u => ({ id: u.id, name: u.full_name, status: u.status })))
-
   return (
     <div className="container mx-auto py-8">
       <div className="max-w-7xl mx-auto">

@@ -27,6 +27,7 @@ CREATE TABLE public.profiles (
   full_name TEXT,
   department VARCHAR(100),
   role VARCHAR(50) DEFAULT 'emp' CHECK (role IN ('emp', 'manager', 'exec', 'admin')),
+  status VARCHAR(20) DEFAULT 'pending' NOT NULL CHECK (status IN ('pending', 'active')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -141,10 +142,33 @@ CREATE POLICY "Users can view all profiles" ON public.profiles
   FOR SELECT USING (true);
 
 CREATE POLICY "Users can insert their own profile" ON public.profiles
-  FOR INSERT WITH CHECK (auth.uid() = id);
+  FOR INSERT WITH CHECK (
+    auth.uid() = id OR
+    auth.uid() IS NULL  -- Allow signup trigger to create profiles
+  );
 
 CREATE POLICY "Users can update their own profile" ON public.profiles
   FOR UPDATE USING (auth.uid() = id);
+
+CREATE POLICY "Admins can update any profile" ON public.profiles
+  FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role = 'admin'
+    )
+  );
+
+CREATE POLICY "Admins can delete any profile" ON public.profiles
+  FOR DELETE
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role = 'admin'
+    )
+  );
 
 -- =============================================================================
 -- STEP 9: CREATE RLS POLICIES - AUDIT TICKETS
@@ -233,6 +257,8 @@ CREATE POLICY "Admins can view all audit logs" ON public.audit_logs
 -- Profiles indexes
 CREATE INDEX IF NOT EXISTS idx_profiles_email ON public.profiles(email);
 CREATE INDEX IF NOT EXISTS idx_profiles_department ON public.profiles(department);
+CREATE INDEX IF NOT EXISTS idx_profiles_status ON public.profiles(status);
+CREATE INDEX IF NOT EXISTS idx_profiles_status_created ON public.profiles(status, created_at DESC);
 
 -- Audit tickets indexes
 CREATE INDEX IF NOT EXISTS idx_audit_tickets_status ON public.audit_tickets(status);
@@ -288,12 +314,14 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  INSERT INTO public.profiles (id, email, full_name, department)
+  INSERT INTO public.profiles (id, email, full_name, department, role, status)
   VALUES (
     NEW.id,
     NEW.email,
     COALESCE(NEW.raw_user_meta_data ->> 'full_name', ''),
-    COALESCE(NEW.raw_user_meta_data ->> 'department', '')
+    COALESCE(NEW.raw_user_meta_data ->> 'department', ''),
+    COALESCE(NEW.raw_user_meta_data ->> 'role', 'emp'),
+    COALESCE(NEW.raw_user_meta_data ->> 'status', 'pending')
   )
   ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
@@ -698,11 +726,17 @@ BEGIN
     RAISE NOTICE '✅ Database setup completed successfully!';
     RAISE NOTICE '';
     RAISE NOTICE 'Created tables:';
-    RAISE NOTICE '  - profiles';
+    RAISE NOTICE '  - profiles (with status field for admin approval workflow)';
     RAISE NOTICE '  - audit_tickets';
     RAISE NOTICE '  - ticket_activities';
     RAISE NOTICE '  - ticket_comment_attachments';
     RAISE NOTICE '  - audit_logs';
+    RAISE NOTICE '';
+    RAISE NOTICE 'User registration workflow:';
+    RAISE NOTICE '  - New users start with status: pending';
+    RAISE NOTICE '  - Admins can approve users (status: active)';
+    RAISE NOTICE '  - Admins can reject/delete users';
+    RAISE NOTICE '  - Admin RLS policies configured for user management';
     RAISE NOTICE '';
     RAISE NOTICE 'Created storage:';
     RAISE NOTICE '  - ticket-attachments bucket (50MB file limit)';
