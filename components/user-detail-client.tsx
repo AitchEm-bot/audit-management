@@ -14,6 +14,8 @@ import { useLanguage } from "@/contexts/language-context"
 import { useTranslation } from "@/lib/translations"
 import { createClient } from "@/lib/supabase/client"
 import { useAuth } from "@/hooks/use-auth"
+import { DeleteUserDialog } from "@/components/delete-user-dialog"
+import { deleteUser } from "@/app/admin/actions"
 
 interface User {
   id: string
@@ -51,6 +53,18 @@ export function UserDetailClient({ user: initialUser }: UserDetailClientProps) {
   })
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
+
+  const handleDelete = async () => {
+    const result = await deleteUser(user.id)
+
+    if (result?.error) {
+      setMessage({ type: 'error', text: result.error })
+      throw new Error(result.error)
+    } else {
+      // Redirect to admin page after successful deletion
+      router.push("/admin")
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -100,7 +114,7 @@ export function UserDetailClient({ user: initialUser }: UserDetailClientProps) {
 
   return (
     <div className="container mx-auto py-8">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-2xl mx-auto">
         <div className="mb-6">
           <Link href="/admin">
             <Button variant="ghost" size="sm">
@@ -216,19 +230,28 @@ export function UserDetailClient({ user: initialUser }: UserDetailClientProps) {
                   </div>
                 )}
 
-                <Button type="submit" disabled={saving}>
-                  {saving ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      {t("users.saving")}
-                    </>
-                  ) : (
-                    <>
-                      <Save className="h-4 w-4 mr-2" />
-                      {t("users.saveChanges")}
-                    </>
-                  )}
-                </Button>
+                <div className="flex items-center justify-between">
+                  <Button type="submit" disabled={saving}>
+                    {saving ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        {t("users.saving")}
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-2" />
+                        {t("users.saveChanges")}
+                      </>
+                    )}
+                  </Button>
+
+                  <DeleteUserDialog
+                    userId={user.id}
+                    userName={user.full_name}
+                    onDelete={handleDelete}
+                    disabled={saving || currentUserProfile?.id === user.id}
+                  />
+                </div>
               </form>
             </CardContent>
           </Card>

@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Calendar, ChevronLeft, ChevronRight, Edit, Eye, User } from "lucide-react"
+import { Calendar, ChevronLeft, ChevronRight, Edit, Eye, User, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { TicketFilters } from "./ticket-filters"
@@ -13,6 +13,9 @@ import { useLanguage } from "@/contexts/language-context"
 import { useTranslation } from "@/lib/translations"
 import { formatDate } from "@/lib/date-utils"
 import { translateStatus, translatePriority, translateDepartment } from "@/lib/ticket-utils"
+import { deleteTicket } from "@/app/tickets/[id]/actions"
+import { useAuth } from "@/hooks/use-auth"
+import { useState } from "react"
 
 interface Ticket {
   id: string
@@ -63,6 +66,8 @@ export function TicketList({ tickets, departments, totalCount, totalPages, curre
   const router = useRouter()
   const { locale } = useLanguage()
   const { t } = useTranslation(locale)
+  const { hasRole } = useAuth()
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const handleRowClick = (ticketId: string, e: React.MouseEvent) => {
     // Don't navigate if clicking on buttons or links
@@ -71,6 +76,18 @@ export function TicketList({ tickets, departments, totalCount, totalPages, curre
       return
     }
     router.push(`/tickets/${ticketId}`)
+  }
+
+  const handleDelete = async (ticketId: string) => {
+    setDeletingId(ticketId)
+    const result = await deleteTicket(ticketId)
+    setDeletingId(null)
+
+    if (result?.error) {
+      alert(result.error)
+    } else {
+      router.refresh()
+    }
   }
 
   return (
@@ -183,6 +200,33 @@ export function TicketList({ tickets, departments, totalCount, totalPages, curre
                               <Edit className="h-4 w-4" />
                             </Link>
                           </Button>
+                          {hasRole(['manager', 'exec', 'admin']) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={deletingId === ticket.id}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDelete(ticket.id)
+                              }}
+                              title={t("tickets.deleteTicket")}
+                              className="text-destructive cursor-pointer"
+                              onMouseEnter={(e) => {
+                                if (deletingId !== ticket.id) {
+                                  e.currentTarget.style.backgroundColor = 'hsl(0 84.2% 60.2%)'
+                                  e.currentTarget.style.color = 'white'
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                if (deletingId !== ticket.id) {
+                                  e.currentTarget.style.backgroundColor = ''
+                                  e.currentTarget.style.color = ''
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

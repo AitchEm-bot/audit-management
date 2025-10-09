@@ -11,6 +11,10 @@ import { useLanguage } from "@/contexts/language-context"
 import { useTranslation } from "@/lib/translations"
 import { UserFilters } from "@/components/user-filters"
 import { UserPagination } from "@/components/user-pagination"
+import { DeleteUserDialog } from "@/components/delete-user-dialog"
+import { deleteUser } from "@/app/admin/actions"
+import { useAuth } from "@/hooks/use-auth"
+import { useState } from "react"
 
 interface User {
   id: string
@@ -40,6 +44,9 @@ export function UserList({ users, totalCount, totalPages, currentPage, departmen
   const router = useRouter()
   const { locale } = useLanguage()
   const { t } = useTranslation(locale)
+  const { profile: currentUserProfile } = useAuth()
+  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
+  const [loadingUserId, setLoadingUserId] = useState<string | null>(null)
 
   const handleRowClick = (userId: string, e: React.MouseEvent) => {
     // Don't navigate if clicking on buttons or links
@@ -47,12 +54,35 @@ export function UserList({ users, totalCount, totalPages, currentPage, departmen
     if (target.closest('button') || target.closest('a')) {
       return
     }
+    setLoadingUserId(userId)
     router.push(`/admin/users/${userId}`)
+  }
+
+  const handleViewClick = (userId: string) => {
+    setLoadingUserId(userId)
+    router.push(`/admin/users/${userId}`)
+  }
+
+  const handleDelete = async (userId: string) => {
+    const result = await deleteUser(userId)
+
+    if (result?.error) {
+      setMessage({ type: 'error', text: result.error })
+      throw new Error(result.error)
+    } else {
+      // Refresh the page to show updated list
+      router.refresh()
+    }
   }
 
   return (
     <div className="space-y-6">
       <UserFilters departments={departments} />
+      {message && (
+        <div className={`p-4 rounded-md ${message.type === 'success' ? 'bg-green-50 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-900 dark:text-red-200'}`}>
+          {message.text}
+        </div>
+      )}
       <Card>
         <CardHeader>
           <CardTitle>{t("users.title")}</CardTitle>
@@ -115,17 +145,33 @@ export function UserList({ users, totalCount, totalPages, currentPage, departmen
                         </Link>
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            router.push(`/admin/users/${user.id}`)
-                          }}
-                        >
-                          <Eye className="h-4 w-4 mr-2" />
-                          {t("users.viewDetails")}
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleViewClick(user.id)
+                            }}
+                            title={t("users.viewDetails")}
+                            className="cursor-pointer"
+                            disabled={loadingUserId === user.id}
+                          >
+                            {loadingUserId === user.id ? (
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </Button>
+
+                          <DeleteUserDialog
+                            userId={user.id}
+                            userName={user.full_name}
+                            onDelete={() => handleDelete(user.id)}
+                            disabled={currentUserProfile?.id === user.id || loadingUserId === user.id}
+                            iconOnly={true}
+                          />
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))

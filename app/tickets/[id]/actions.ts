@@ -418,6 +418,53 @@ export async function deleteAttachment(attachmentId: string, filePath: string) {
   }
 }
 
+export async function deleteTicket(ticketId: string) {
+  const supabase = await createClient()
+
+  // Check if user is authenticated
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { error: 'Not authenticated' }
+  }
+
+  // Check if user has permission (manager, exec, or admin)
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile || !['manager', 'exec', 'admin'].includes(profile.role)) {
+    return { error: 'Unauthorized - Only managers, executives, and admins can delete tickets' }
+  }
+
+  try {
+    // Delete the ticket (cascading will handle activities and attachments)
+    const { error } = await supabase
+      .from('audit_tickets')
+      .delete()
+      .eq('id', ticketId)
+
+    if (error) {
+      console.error('Error deleting ticket:', error)
+      return { error: 'Failed to delete ticket' }
+    }
+
+    console.log('Ticket deleted successfully')
+
+    // Revalidate the tickets page
+    revalidatePath('/tickets')
+
+    return { success: true }
+  } catch (error) {
+    console.error('Server error deleting ticket:', error)
+    return { error: 'Failed to delete ticket' }
+  }
+}
+
 export async function closeTicketWithComment(ticketId: string, closingComment: string, aiGenerated = false) {
   const supabase = await createClient()
 

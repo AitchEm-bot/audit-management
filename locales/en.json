@@ -377,6 +377,13 @@
     "allDepartments": "All Departments",
     "userSingular": "user",
     "userPlural": "users",
-    "showing": "Showing {start} to {end} of {total}"
+    "showing": "Showing {start} to {end} of {total}",
+    "deleteUser": "Delete User",
+    "deleteUserTitle": "Delete User Account",
+    "deleteUserWarning": "Are you sure you want to delete {name}'s account? This will permanently remove all their data from the system.",
+    "deleteUserWarning2": "This action cannot be undone.",
+    "deleteUserConfirmLabel": "To confirm, type",
+    "deleteUserConfirmPlaceholder": "Type 'confirm delete' to proceed",
+    "deleting": "Deleting..."
   }
 }

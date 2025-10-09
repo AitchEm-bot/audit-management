@@ -377,6 +377,13 @@
     "allDepartments": "جميع الأقسام",
     "userSingular": "مستخدم",
     "userPlural": "مستخدمين",
-    "showing": "عرض {start} إلى {end} من {total}"
+    "showing": "عرض {start} إلى {end} من {total}",
+    "deleteUser": "حذف المستخدم",
+    "deleteUserTitle": "حذف حساب المستخدم",
+    "deleteUserWarning": "هل أنت متأكد من حذف حساب {name}؟ سيؤدي هذا إلى إزالة جميع بياناتهم من النظام بشكل دائم.",
+    "deleteUserWarning2": "لا يمكن التراجع عن هذا الإجراء.",
+    "deleteUserConfirmLabel": "للتأكيد، اكتب",
+    "deleteUserConfirmPlaceholder": "اكتب 'confirm delete' للمتابعة",
+    "deleting": "جاري الحذف..."
   }
 }
