@@ -15,7 +15,8 @@ import { formatDate } from "@/lib/date-utils"
 import { translateStatus, translatePriority, translateDepartment } from "@/lib/ticket-utils"
 import { deleteTicket } from "@/app/tickets/[id]/actions"
 import { useAuth } from "@/hooks/use-auth"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { createClient } from "@/lib/supabase/client"
 
 interface Ticket {
   id: string
@@ -68,6 +69,7 @@ export function TicketList({ tickets, departments, totalCount, totalPages, curre
   const { t } = useTranslation(locale)
   const { hasRole } = useAuth()
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const supabase = createClient()
 
   const handleRowClick = (ticketId: string, e: React.MouseEvent) => {
     // Don't navigate if clicking on buttons or links
@@ -89,6 +91,30 @@ export function TicketList({ tickets, departments, totalCount, totalPages, curre
       router.refresh()
     }
   }
+
+  // Subscribe to realtime changes on audit_tickets table
+  useEffect(() => {
+    const channel = supabase
+      .channel('ticket-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'audit_tickets'
+        },
+        (payload) => {
+          console.log('Ticket change detected:', payload)
+          // Refresh the page to get updated data
+          router.refresh()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      channel.unsubscribe()
+    }
+  }, [router, supabase])
 
   return (
     <div className="space-y-6">

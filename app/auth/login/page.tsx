@@ -12,6 +12,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect } from "react"
 import { useLanguage } from "@/contexts/language-context"
 import { useTranslation } from "@/lib/translations"
+import { AuthLanguageToggle } from "@/components/auth-language-toggle"
 
 export default function LoginPage() {
   const { locale } = useLanguage()
@@ -52,7 +53,8 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
+    <div className="relative flex min-h-svh w-full items-center justify-center p-6 md:p-10" dir={locale === 'ar' ? 'rtl' : 'ltr'}>
+      <AuthLanguageToggle />
       <div className="w-full max-w-sm">
         <div className="flex flex-col gap-6">
           <Card>
@@ -79,7 +81,7 @@ export default function LoginPage() {
                       <Label htmlFor="password">{t("auth.password")}</Label>
                       <Link
                         href="/auth/forgot-password"
-                        className="ml-auto inline-block text-sm underline underline-offset-4"
+                        className={`${locale === 'ar' ? 'mr-auto' : 'ml-auto'} inline-block text-sm underline underline-offset-4`}
                       >
                         {t("auth.forgotPassword")}
                       </Link>

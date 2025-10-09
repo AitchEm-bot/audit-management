@@ -11,8 +11,13 @@ import { PasswordStrengthIndicator } from "@/components/password-strength-indica
 import { validatePassword } from "@/lib/password-validation"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect } from "react"
+import { useLanguage } from "@/contexts/language-context"
+import { useTranslation } from "@/lib/translations"
+import { AuthLanguageToggle } from "@/components/auth-language-toggle"
 
 export default function ResetPasswordPage() {
+  const { locale } = useLanguage()
+  const { t } = useTranslation(locale)
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -26,9 +31,9 @@ export default function ResetPasswordPage() {
     const refreshToken = searchParams.get("refresh_token")
 
     if (!accessToken || !refreshToken) {
-      setError("Invalid reset link. Please request a new password reset.")
+      setError(locale === 'ar' ? "رابط إعادة التعيين غير صالح. يرجى طلب إعادة تعيين كلمة مرور جديدة." : "Invalid reset link. Please request a new password reset.")
     }
-  }, [searchParams])
+  }, [searchParams, locale])
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -44,7 +49,7 @@ export default function ResetPasswordPage() {
     }
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match")
+      setError(locale === 'ar' ? "كلمات المرور غير متطابقة" : "Passwords do not match")
       setIsLoading(false)
       return
     }
@@ -56,7 +61,8 @@ export default function ResetPasswordPage() {
 
       if (error) throw error
 
-      router.push("/auth/login?message=Password updated successfully")
+      const message = locale === 'ar' ? "تم تحديث كلمة المرور بنجاح" : "Password updated successfully"
+      router.push(`/auth/login?message=${encodeURIComponent(message)}`)
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred")
     } finally {
@@ -65,19 +71,20 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
+    <div className="relative flex min-h-svh w-full items-center justify-center p-6 md:p-10" dir={locale === 'ar' ? 'rtl' : 'ltr'}>
+      <AuthLanguageToggle />
       <div className="w-full max-w-sm">
         <div className="flex flex-col gap-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-2xl">Set New Password</CardTitle>
-              <CardDescription>Enter your new password</CardDescription>
+              <CardTitle className="text-2xl">{t("auth.setNewPassword")}</CardTitle>
+              <CardDescription>{t("auth.enterNewPassword")}</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleResetPassword}>
                 <div className="flex flex-col gap-6">
                   <div className="grid gap-2">
-                    <Label htmlFor="password">New Password</Label>
+                    <Label htmlFor="password">{t("auth.newPassword")}</Label>
                     <Input
                       id="password"
                       type="password"
@@ -88,7 +95,7 @@ export default function ResetPasswordPage() {
                     <PasswordStrengthIndicator password={password} />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                    <Label htmlFor="confirmPassword">{t("auth.confirmNewPassword")}</Label>
                     <Input
                       id="confirmPassword"
                       type="password"
@@ -98,13 +105,15 @@ export default function ResetPasswordPage() {
                     />
                     {confirmPassword && (
                       <p className={`text-xs ${password === confirmPassword ? "text-green-500" : "text-red-500"}`}>
-                        {password === confirmPassword ? "✓ Passwords match" : "✗ Passwords do not match"}
+                        {password === confirmPassword
+                          ? locale === 'ar' ? "✓ كلمات المرور متطابقة" : "✓ Passwords match"
+                          : locale === 'ar' ? "✗ كلمات المرور غير متطابقة" : "✗ Passwords do not match"}
                       </p>
                     )}
                   </div>
                   {error && <p className="text-sm text-red-500">{error}</p>}
                   <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? "Updating..." : "Update Password"}
+                    {isLoading ? t("common.loading") : t("auth.updatePassword")}
                   </Button>
                 </div>
               </form>

@@ -318,10 +318,10 @@ BEGIN
   VALUES (
     NEW.id,
     NEW.email,
-    COALESCE(NEW.raw_user_meta_data ->> 'full_name', ''),
-    COALESCE(NEW.raw_user_meta_data ->> 'department', ''),
-    COALESCE(NEW.raw_user_meta_data ->> 'role', 'emp'),
-    COALESCE(NEW.raw_user_meta_data ->> 'status', 'pending')
+    COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
+    COALESCE(NEW.raw_user_meta_data->>'department', ''),
+    COALESCE(NEW.raw_user_meta_data->>'role', 'emp'),
+    COALESCE(NEW.raw_user_meta_data->>'status', 'pending')
   )
   ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
@@ -721,6 +721,423 @@ CREATE UNIQUE INDEX ON public.mv_daily_metrics (date);
 -- SUCCESS MESSAGE
 -- =============================================================================
 
+-- =============================================================================
+-- STEP 17: ENABLE REALTIME FOR AUTO-REFRESH
+-- =============================================================================
+
+-- Enable realtime for profiles table (for admin panel auto-refresh)
+DO $$
+BEGIN
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.profiles;
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL; -- Already enabled, ignore
+  END;
+END $$;
+
+-- Enable realtime for audit_tickets table (for tickets page auto-refresh)
+DO $$
+BEGIN
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.audit_tickets;
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL; -- Already enabled, ignore
+  END;
+END $$;
+
+-- =============================================================================
+-- STEP 17: CASCADE DELETE AND AUTH FUNCTIONS
+-- =============================================================================
+
+-- Ensure CASCADE delete from auth.users to profiles
+ALTER TABLE public.profiles
+DROP CONSTRAINT IF EXISTS profiles_id_fkey;
+
+-- Re-add the foreign key with CASCADE delete
+ALTER TABLE public.profiles
+ADD CONSTRAINT profiles_id_fkey
+FOREIGN KEY (id)
+REFERENCES auth.users(id)
+ON DELETE CASCADE;
+
+-- Function to delete from auth.users (cascades to profiles)
+DROP FUNCTION IF EXISTS public.delete_user_completely;
+
+CREATE OR REPLACE FUNCTION public.delete_user_completely(
+  target_user_id UUID
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  -- Delete from auth.users (will cascade to profiles)
+  DELETE FROM auth.users WHERE id = target_user_id;
+  RETURN FOUND; -- Returns true if a row was deleted
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.delete_user_completely TO authenticated;
+
+-- =============================================================================
+-- STEP 18: ADMIN OPERATIONS ON AUTH.USERS
+-- =============================================================================
+
+-- Function to delete a user from auth.users (which will cascade to profiles)
+DROP FUNCTION IF EXISTS public.admin_delete_user;
+
+CREATE OR REPLACE FUNCTION public.admin_delete_user(
+  target_user_id UUID,
+  admin_user_id UUID
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  admin_role TEXT;
+  result JSONB;
+BEGIN
+  -- Check if the requesting user is an admin
+  SELECT role INTO admin_role
+  FROM public.profiles
+  WHERE id = admin_user_id;
+
+  IF admin_role != 'admin' THEN
+    RETURN jsonb_build_object('error', 'Unauthorized - Admin access required');
+  END IF;
+
+  -- Prevent admin from deleting themselves
+  IF target_user_id = admin_user_id THEN
+    RETURN jsonb_build_object('error', 'Cannot delete your own account');
+  END IF;
+
+  -- Delete from auth.users (will cascade to profiles due to foreign key)
+  DELETE FROM auth.users WHERE id = target_user_id;
+
+  -- Check if deletion was successful
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('error', 'User not found');
+  END IF;
+
+  RETURN jsonb_build_object('success', true, 'message', 'User and profile deleted successfully');
+END;
+$$;
+
+-- Function to update user metadata in auth.users
+DROP FUNCTION IF EXISTS public.admin_update_user_metadata;
+
+CREATE OR REPLACE FUNCTION public.admin_update_user_metadata(
+  target_user_id UUID,
+  admin_user_id UUID,
+  new_full_name TEXT DEFAULT NULL,
+  new_department TEXT DEFAULT NULL,
+  new_role TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  admin_role TEXT;
+  current_metadata JSONB;
+  updated_metadata JSONB;
+BEGIN
+  -- Check if the requesting user is an admin
+  SELECT role INTO admin_role
+  FROM public.profiles
+  WHERE id = admin_user_id;
+
+  IF admin_role != 'admin' THEN
+    RETURN jsonb_build_object('error', 'Unauthorized - Admin access required');
+  END IF;
+
+  -- Get current raw_user_meta_data
+  SELECT raw_user_meta_data INTO current_metadata
+  FROM auth.users
+  WHERE id = target_user_id;
+
+  IF current_metadata IS NULL THEN
+    current_metadata := '{}'::jsonb;
+  END IF;
+
+  -- Build updated metadata
+  updated_metadata := current_metadata;
+
+  IF new_full_name IS NOT NULL THEN
+    updated_metadata := jsonb_set(updated_metadata, '{full_name}', to_jsonb(new_full_name));
+  END IF;
+
+  IF new_department IS NOT NULL THEN
+    updated_metadata := jsonb_set(updated_metadata, '{department}', to_jsonb(new_department));
+  END IF;
+
+  IF new_role IS NOT NULL THEN
+    updated_metadata := jsonb_set(updated_metadata, '{role}', to_jsonb(new_role));
+  END IF;
+
+  -- Update auth.users metadata
+  UPDATE auth.users
+  SET
+    raw_user_meta_data = updated_metadata,
+    updated_at = NOW()
+  WHERE id = target_user_id;
+
+  -- Also update the profile table to keep in sync
+  UPDATE public.profiles
+  SET
+    full_name = COALESCE(new_full_name, full_name),
+    department = COALESCE(new_department, department),
+    role = COALESCE(new_role::varchar(50), role),
+    updated_at = NOW()
+  WHERE id = target_user_id;
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'message', 'User metadata updated successfully',
+    'updated_metadata', updated_metadata
+  );
+END;
+$$;
+
+-- Function to sync profile changes to auth.users metadata
+DROP FUNCTION IF EXISTS public.sync_profile_to_auth;
+
+CREATE OR REPLACE FUNCTION public.sync_profile_to_auth()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  -- Update auth.users metadata when profile is updated
+  UPDATE auth.users
+  SET
+    raw_user_meta_data = jsonb_build_object(
+      'full_name', NEW.full_name,
+      'department', NEW.department,
+      'role', NEW.role,
+      'status', NEW.status
+    ),
+    updated_at = NOW()
+  WHERE id = NEW.id;
+
+  RETURN NEW;
+END;
+$$;
+
+-- Create trigger to sync profile updates to auth.users
+DROP TRIGGER IF EXISTS sync_profile_to_auth_trigger ON public.profiles;
+
+CREATE TRIGGER sync_profile_to_auth_trigger
+AFTER UPDATE OF full_name, department, role, status ON public.profiles
+FOR EACH ROW
+EXECUTE FUNCTION sync_profile_to_auth();
+
+-- Grant execute permissions
+GRANT EXECUTE ON FUNCTION public.admin_delete_user TO authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_update_user_metadata TO authenticated;
+
+-- =============================================================================
+-- STEP 19: EMAIL VERIFICATION FUNCTIONS
+-- =============================================================================
+
+-- Function to check email verification status
+DROP FUNCTION IF EXISTS public.check_email_verification_status;
+
+CREATE OR REPLACE FUNCTION public.check_email_verification_status(user_email TEXT)
+RETURNS TABLE(
+  user_id UUID,
+  email TEXT,
+  email_confirmed_at TIMESTAMP WITH TIME ZONE,
+  is_verified BOOLEAN
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    u.id as user_id,
+    u.email::TEXT as email,
+    u.email_confirmed_at,
+    CASE
+      WHEN u.email_confirmed_at IS NOT NULL THEN true
+      ELSE false
+    END as is_verified
+  FROM auth.users u
+  WHERE LOWER(u.email) = LOWER(user_email)
+  LIMIT 1;
+END;
+$$;
+
+-- Function that returns both profile and auth status
+DROP FUNCTION IF EXISTS public.get_profile_with_auth_status;
+
+CREATE OR REPLACE FUNCTION public.get_profile_with_auth_status(user_email TEXT)
+RETURNS TABLE(
+  id UUID,
+  email TEXT,
+  full_name TEXT,
+  department VARCHAR(100),
+  role VARCHAR(50),
+  status VARCHAR(20),
+  created_at TIMESTAMP WITH TIME ZONE,
+  updated_at TIMESTAMP WITH TIME ZONE,
+  email_confirmed_at TIMESTAMP WITH TIME ZONE,
+  email_verified BOOLEAN
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    p.id,
+    p.email::TEXT,
+    p.full_name::TEXT,
+    p.department,
+    p.role,
+    p.status,
+    p.created_at,
+    p.updated_at,
+    u.email_confirmed_at,
+    CASE
+      WHEN u.email_confirmed_at IS NOT NULL THEN true
+      ELSE false
+    END as email_verified
+  FROM public.profiles p
+  LEFT JOIN auth.users u ON p.id = u.id
+  WHERE LOWER(p.email) = LOWER(user_email)
+  LIMIT 1;
+END;
+$$;
+
+-- Grant execute permissions
+GRANT EXECUTE ON FUNCTION public.check_email_verification_status TO anon;
+GRANT EXECUTE ON FUNCTION public.check_email_verification_status TO authenticated;
+GRANT EXECUTE ON FUNCTION public.check_email_verification_status TO service_role;
+GRANT EXECUTE ON FUNCTION public.get_profile_with_auth_status TO anon;
+GRANT EXECUTE ON FUNCTION public.get_profile_with_auth_status TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_profile_with_auth_status TO service_role;
+
+-- =============================================================================
+-- STEP 20: PROFILES VIEW WITH AUTH STATUS
+-- =============================================================================
+
+-- Drop the view if it exists first
+DROP VIEW IF EXISTS public.profiles_with_auth CASCADE;
+
+-- Create a view that joins profiles with auth.users to get email confirmation status
+CREATE VIEW public.profiles_with_auth AS
+SELECT
+  p.id,
+  p.email,
+  p.full_name,
+  p.department,
+  p.role,
+  p.status,
+  p.created_at,
+  p.updated_at,
+  u.email_confirmed_at,
+  CASE
+    WHEN u.email_confirmed_at IS NOT NULL THEN true
+    ELSE false
+  END as email_verified
+FROM public.profiles p
+LEFT JOIN auth.users u ON p.id = u.id;
+
+-- Grant access to all users
+GRANT SELECT ON public.profiles_with_auth TO authenticated;
+GRANT SELECT ON public.profiles_with_auth TO anon;
+GRANT SELECT ON public.profiles_with_auth TO service_role;
+
+-- Set view owner
+ALTER VIEW public.profiles_with_auth OWNER TO postgres;
+
+-- =============================================================================
+-- STEP 21: REJECTION TRACKING
+-- =============================================================================
+
+-- Create a table to track rejected user registrations
+CREATE TABLE IF NOT EXISTS public.rejected_registrations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email TEXT NOT NULL,
+  rejected_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  rejected_by UUID REFERENCES auth.users(id),
+  reason TEXT
+);
+
+-- Create index for email lookups
+CREATE INDEX idx_rejected_registrations_email ON public.rejected_registrations(email);
+
+-- Function to check if an email was rejected
+DROP FUNCTION IF EXISTS public.check_rejection_status;
+
+CREATE OR REPLACE FUNCTION public.check_rejection_status(user_email TEXT)
+RETURNS TABLE(
+  is_rejected BOOLEAN,
+  rejected_at TIMESTAMP WITH TIME ZONE,
+  reason TEXT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    true as is_rejected,
+    rr.rejected_at,
+    rr.reason
+  FROM public.rejected_registrations rr
+  WHERE LOWER(rr.email) = LOWER(user_email)
+  ORDER BY rr.rejected_at DESC
+  LIMIT 1;
+
+  -- If no rejection found, return false
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT false::boolean as is_rejected, NULL::timestamp with time zone as rejected_at, NULL::text as reason;
+  END IF;
+END;
+$$;
+
+-- Grant permissions
+GRANT SELECT ON public.rejected_registrations TO anon;
+GRANT SELECT ON public.rejected_registrations TO authenticated;
+GRANT INSERT ON public.rejected_registrations TO authenticated;
+GRANT EXECUTE ON FUNCTION public.check_rejection_status TO anon;
+GRANT EXECUTE ON FUNCTION public.check_rejection_status TO authenticated;
+
+-- RLS policies
+ALTER TABLE public.rejected_registrations ENABLE ROW LEVEL SECURITY;
+
+-- Allow admins to insert rejection records
+CREATE POLICY "Admins can insert rejection records" ON public.rejected_registrations
+FOR INSERT TO authenticated
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid()
+    AND role = 'admin'
+  )
+);
+
+-- Allow anyone to read rejection records (for checking status)
+CREATE POLICY "Anyone can check rejection status" ON public.rejected_registrations
+FOR SELECT TO anon, authenticated
+USING (true);
+
+-- =============================================================================
+-- SUCCESS MESSAGE
+-- =============================================================================
+
 DO $$
 BEGIN
     RAISE NOTICE '✅ Database setup completed successfully!';
@@ -731,12 +1148,20 @@ BEGIN
     RAISE NOTICE '  - ticket_activities';
     RAISE NOTICE '  - ticket_comment_attachments';
     RAISE NOTICE '  - audit_logs';
+    RAISE NOTICE '  - rejected_registrations (tracks rejected users)';
     RAISE NOTICE '';
     RAISE NOTICE 'User registration workflow:';
     RAISE NOTICE '  - New users start with status: pending';
+    RAISE NOTICE '  - Email verification tracked via auth.users join';
     RAISE NOTICE '  - Admins can approve users (status: active)';
-    RAISE NOTICE '  - Admins can reject/delete users';
+    RAISE NOTICE '  - Admins can reject/delete users (removes from auth.users + profiles)';
     RAISE NOTICE '  - Admin RLS policies configured for user management';
+    RAISE NOTICE '  - Profile updates sync to auth.users metadata';
+    RAISE NOTICE '';
+    RAISE NOTICE 'Realtime subscriptions enabled:';
+    RAISE NOTICE '  - profiles table: Auto-refresh admin panel';
+    RAISE NOTICE '  - audit_tickets table: Auto-refresh tickets page';
+    RAISE NOTICE '  - Sign-up success page auto-detects approval';
     RAISE NOTICE '';
     RAISE NOTICE 'Created storage:';
     RAISE NOTICE '  - ticket-attachments bucket (50MB file limit)';
@@ -745,6 +1170,15 @@ BEGIN
     RAISE NOTICE 'Created materialized views:';
     RAISE NOTICE '  - mv_department_stats';
     RAISE NOTICE '  - mv_daily_metrics';
+    RAISE NOTICE '';
+    RAISE NOTICE 'Created functions for auth management:';
+    RAISE NOTICE '  - admin_delete_user: Delete users from auth.users + profiles';
+    RAISE NOTICE '  - admin_update_user_metadata: Sync profile changes to auth.users';
+    RAISE NOTICE '  - get_profile_with_auth_status: Check email verification status';
+    RAISE NOTICE '  - delete_user_completely: Simple user deletion with CASCADE';
+    RAISE NOTICE '';
+    RAISE NOTICE 'Created views:';
+    RAISE NOTICE '  - profiles_with_auth: Joins profiles with auth.users for email verification';
     RAISE NOTICE '';
     RAISE NOTICE 'All RLS policies, triggers, and indexes have been created.';
     RAISE NOTICE '';

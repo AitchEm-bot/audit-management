@@ -77,7 +77,25 @@
     "passwordResetSuccess": "تم إعادة تعيين كلمة المرور بنجاح",
     "fullName": "الاسم الكامل",
     "signUpTitle": "إنشاء حسابك",
-    "signUpSubtitle": "أدخل بياناتك لإنشاء حساب"
+    "signUpSubtitle": "أدخل بياناتك لإنشاء حساب",
+    "signupSuccess": {
+      "registrationSubmitted": "تم إرسال التسجيل!",
+      "accountApproved": "تمت الموافقة على الحساب!",
+      "awaitingApproval": "في انتظار الموافقة",
+      "yourAccountReady": "حسابك جاهز",
+      "emailVerification": "التحقق من البريد الإلكتروني",
+      "adminApproval": "موافقة المسؤول",
+      "approved": "تمت الموافقة على حسابك!",
+      "approvedDescription": "حسابك جاهز! يرجى تسجيل الدخول للوصول إلى النظام.",
+      "goToLogin": "انتقل إلى تسجيل الدخول",
+      "thankYou": "شكرًا لتسجيلك في نظام إدارة التدقيق.",
+      "waitingForAdminApproval": "في انتظار موافقة المسؤول",
+      "nextSteps": "الخطوات التالية:",
+      "step1CheckEmail": "تحقق من بريدك الإلكتروني وتحقق من عنوان بريدك الإلكتروني",
+      "step2ReturnToPage": "عد إلى هذه الصفحة لمعرفة حالة الموافقة الخاصة بك",
+      "step3LoginAfterApproval": "سجل الدخول بعد الموافقة للوصول إلى لوحة التحكم",
+      "pageAutoUpdates": "يتم تحديث هذه الصفحة تلقائيًا عند تغيير حالتك."
+    }
   },
   "dashboard": {
     "title": "لوحة التحكم",
@@ -383,7 +401,8 @@
     "deleteUserWarning": "هل أنت متأكد من حذف حساب {name}؟ سيؤدي هذا إلى إزالة جميع بياناتهم من النظام بشكل دائم.",
     "deleteUserWarning2": "لا يمكن التراجع عن هذا الإجراء.",
     "deleteUserConfirmLabel": "للتأكيد، اكتب",
-    "deleteUserConfirmPlaceholder": "اكتب 'confirm delete' للمتابعة",
-    "deleting": "جاري الحذف..."
+    "deleteUserConfirmPlaceholder": "اكتب 'تأكيد الحذف' للمتابعة",
+    "deleting": "جاري الحذف...",
+    "cannotUndo": "لا يمكن التراجع عن هذا الإجراء."
   }
 }

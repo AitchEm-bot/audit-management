@@ -16,6 +16,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Trash2 } from "lucide-react"
+import { useLanguage } from "@/contexts/language-context"
+import { useTranslation } from "@/lib/translations"
 
 interface DeleteUserDialogProps {
   userName: string
@@ -25,12 +27,14 @@ interface DeleteUserDialogProps {
 }
 
 export function DeleteUserDialog({ userName, onDelete, disabled, iconOnly = false }: DeleteUserDialogProps) {
+  const { locale } = useLanguage()
+  const { t } = useTranslation(locale)
   const [open, setOpen] = useState(false)
   const [confirmText, setConfirmText] = useState("")
   const [isDeleting, setIsDeleting] = useState(false)
 
-  const CONFIRM_TEXT = "confirm delete"
-  const isConfirmValid = confirmText.toLowerCase() === CONFIRM_TEXT
+  const CONFIRM_TEXT = locale === "ar" ? "تأكيد الحذف" : "confirm delete"
+  const isConfirmValid = confirmText.toLowerCase() === CONFIRM_TEXT.toLowerCase()
 
   const handleDelete = async () => {
     if (!isConfirmValid) return
@@ -62,7 +66,7 @@ export function DeleteUserDialog({ userName, onDelete, disabled, iconOnly = fals
             variant="ghost"
             size="icon"
             disabled={disabled}
-            title="Delete User"
+            title={t("users.deleteUser")}
             className="text-destructive data-[state=open]:bg-destructive data-[state=open]:text-white"
             onMouseEnter={(e) => {
               if (!disabled) {
@@ -82,36 +86,43 @@ export function DeleteUserDialog({ userName, onDelete, disabled, iconOnly = fals
           </Button>
         ) : (
           <Button variant="destructive" size="sm" disabled={disabled}>
-            <Trash2 className="h-4 w-4 mr-2" />
-            Delete User
+            <Trash2 className={`h-4 w-4 ${locale === 'ar' ? 'ml-2' : 'mr-2'}`} />
+            {t("users.deleteUser")}
           </Button>
         )}
       </AlertDialogTrigger>
-      <AlertDialogContent>
+      <AlertDialogContent className={locale === 'ar' ? 'rtl' : 'ltr'}>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete User Account</AlertDialogTitle>
+          <AlertDialogTitle>{t("users.deleteUserTitle")}</AlertDialogTitle>
           <AlertDialogDescription className="space-y-4">
-            <p>Are you sure you want to delete {userName}'s account? This will permanently remove all their data from the system.</p>
+            <p>
+              {locale === 'ar'
+                ? `هل أنت متأكد من حذف حساب ${userName}؟ سيؤدي هذا إلى إزالة جميع بياناتهم من النظام بشكل دائم.`
+                : `Are you sure you want to delete ${userName}'s account? This will permanently remove all their data from the system.`}
+            </p>
             <p className="font-semibold text-destructive">
-              This action cannot be undone.
+              {t("users.cannotUndo")}
             </p>
             <div className="space-y-2 pt-4">
               <Label htmlFor="confirm-text">
-                To confirm, type <code className="bg-muted px-2 py-1 rounded text-sm">confirm delete</code>
+                {locale === 'ar'
+                  ? <>للتأكيد، اكتب <code className="bg-muted px-2 py-1 rounded text-sm" dir="ltr">{CONFIRM_TEXT}</code></>
+                  : <>To confirm, type <code className="bg-muted px-2 py-1 rounded text-sm">confirm delete</code></>}
               </Label>
               <Input
                 id="confirm-text"
                 value={confirmText}
                 onChange={(e) => setConfirmText(e.target.value)}
-                placeholder="Type 'confirm delete' to proceed"
+                placeholder={locale === 'ar' ? `اكتب '${CONFIRM_TEXT}' للمتابعة` : "Type 'confirm delete' to proceed"}
                 autoComplete="off"
+                dir={locale === 'ar' ? 'rtl' : 'ltr'}
               />
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter>
+        <AlertDialogFooter className={locale === 'ar' ? 'flex-row-reverse gap-2' : ''}>
           <AlertDialogCancel disabled={isDeleting}>
-            Cancel
+            {t("common.cancel")}
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={(e) => {
@@ -123,11 +134,11 @@ export function DeleteUserDialog({ userName, onDelete, disabled, iconOnly = fals
           >
             {isDeleting ? (
               <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                <span className="text-white">Deleting...</span>
+                <div className={`animate-spin rounded-full h-4 w-4 border-b-2 border-white ${locale === 'ar' ? 'ml-2' : 'mr-2'}`}></div>
+                <span className="text-white">{t("users.deleting")}</span>
               </>
             ) : (
-              <span className="text-white">Delete User</span>
+              <span className="text-white">{t("users.deleteUser")}</span>
             )}
           </AlertDialogAction>
         </AlertDialogFooter>

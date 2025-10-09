@@ -77,7 +77,25 @@
     "passwordResetSuccess": "Your password has been reset successfully",
     "fullName": "Full Name",
     "signUpTitle": "Create your account",
-    "signUpSubtitle": "Enter your details to create an account"
+    "signUpSubtitle": "Enter your details to create an account",
+    "signupSuccess": {
+      "registrationSubmitted": "Registration Submitted!",
+      "accountApproved": "Account Approved!",
+      "awaitingApproval": "Awaiting approval",
+      "yourAccountReady": "Your account is ready",
+      "emailVerification": "Email Verification",
+      "adminApproval": "Admin Approval",
+      "approved": "Your account has been approved!",
+      "approvedDescription": "Your account is ready! Please log in to access the system.",
+      "goToLogin": "Go to Login",
+      "thankYou": "Thank you for signing up for the audit management system.",
+      "waitingForAdminApproval": "Waiting for admin approval",
+      "nextSteps": "Next Steps:",
+      "step1CheckEmail": "Check your email and verify your email address",
+      "step2ReturnToPage": "Return to this page to see your approval status",
+      "step3LoginAfterApproval": "Log in once approved to access the dashboard",
+      "pageAutoUpdates": "This page automatically updates when your status changes."
+    }
   },
   "dashboard": {
     "title": "Dashboard",
@@ -384,6 +402,7 @@
     "deleteUserWarning2": "This action cannot be undone.",
     "deleteUserConfirmLabel": "To confirm, type",
     "deleteUserConfirmPlaceholder": "Type 'confirm delete' to proceed",
-    "deleting": "Deleting..."
+    "deleting": "Deleting...",
+    "cannotUndo": "This action cannot be undone."
   }
 }

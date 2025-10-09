@@ -14,8 +14,9 @@ import { UserPagination } from "@/components/user-pagination"
 import { DeleteUserDialog } from "@/components/delete-user-dialog"
 import { deleteUser, approveUser, rejectUser } from "@/app/admin/actions"
 import { useAuth } from "@/hooks/use-auth"
-import { useState } from "react"
-import { Check, X } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Check, X, CheckCircle2, XCircle, AlertCircle } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
 
 interface User {
   id: string
@@ -49,6 +50,7 @@ export function UserList({ users, totalCount, totalPages, currentPage, departmen
   const { profile: currentUserProfile } = useAuth()
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
   const [loadingUserId, setLoadingUserId] = useState<string | null>(null)
+  const supabase = createClient()
 
   const handleRowClick = (userId: string, e: React.MouseEvent) => {
     // Don't navigate if clicking on buttons or links
@@ -72,20 +74,31 @@ export function UserList({ users, totalCount, totalPages, currentPage, departmen
       setMessage({ type: 'error', text: result.error })
       throw new Error(result.error)
     } else {
+      setMessage({ type: 'success', text: 'User deleted successfully' })
+      // Auto-dismiss message after 5 seconds
+      setTimeout(() => setMessage(null), 5000)
       // Refresh the page to show updated list
       router.refresh()
     }
   }
 
   const handleApprove = async (userId: string) => {
+    console.log('👍 Approving user:', userId)
     setLoadingUserId(userId)
     const result = await approveUser(userId)
     setLoadingUserId(null)
 
+    console.log('Approve result:', result)
+
     if (result?.error) {
       setMessage({ type: 'error', text: result.error })
+      // Auto-dismiss error after 10 seconds
+      setTimeout(() => setMessage(null), 10000)
     } else {
       setMessage({ type: 'success', text: 'User approved successfully' })
+      // Auto-dismiss success after 5 seconds
+      setTimeout(() => setMessage(null), 5000)
+      console.log('✅ User approved, refreshing page...')
       router.refresh()
     }
   }
@@ -97,18 +110,69 @@ export function UserList({ users, totalCount, totalPages, currentPage, departmen
 
     if (result?.error) {
       setMessage({ type: 'error', text: result.error })
+      // Auto-dismiss error after 10 seconds
+      setTimeout(() => setMessage(null), 10000)
     } else {
-      setMessage({ type: 'success', text: 'User rejected successfully' })
+      setMessage({ type: 'success', text: 'User rejected and removed successfully' })
+      // Auto-dismiss success after 5 seconds
+      setTimeout(() => setMessage(null), 5000)
       router.refresh()
     }
   }
+
+  // Subscribe to realtime changes on profiles table
+  useEffect(() => {
+    const channel = supabase
+      .channel('admin-profile-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'profiles'
+        },
+        (payload) => {
+          console.log('🔔 Admin panel: Profile change detected:', payload.eventType)
+          console.log('Profile details:', {
+            email: payload.new?.email || payload.old?.email,
+            status: payload.new?.status || payload.old?.status,
+            eventType: payload.eventType
+          })
+          // Refresh the page to get updated data
+          router.refresh()
+        }
+      )
+      .subscribe((status) => {
+        console.log('🔔 Admin panel Realtime status:', status)
+      })
+
+    return () => {
+      channel.unsubscribe()
+    }
+  }, [router, supabase])
 
   return (
     <div className="space-y-6">
       <UserFilters departments={departments} />
       {message && (
-        <div className={`p-4 rounded-md ${message.type === 'success' ? 'bg-green-50 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-900 dark:text-red-200'}`}>
-          {message.text}
+        <div className={`p-4 rounded-md flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-300 ${
+          message.type === 'success'
+            ? 'bg-green-50 text-green-800 border border-green-200 dark:bg-green-950 dark:text-green-200 dark:border-green-800'
+            : 'bg-red-50 text-red-800 border border-red-200 dark:bg-red-950 dark:text-red-200 dark:border-red-800'
+        }`}>
+          {message.type === 'success' ? (
+            <CheckCircle2 className="h-5 w-5 flex-shrink-0" />
+          ) : (
+            <XCircle className="h-5 w-5 flex-shrink-0" />
+          )}
+          <span className="font-medium">{message.text}</span>
+          <button
+            onClick={() => setMessage(null)}
+            className="ml-auto p-1 hover:opacity-70 transition-opacity"
+            aria-label="Dismiss message"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
       )}
       <Card>

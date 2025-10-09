@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Search } from "lucide-react"
 import { useLanguage } from "@/contexts/language-context"
 import { useTranslation } from "@/lib/translations"
+import { getDepartmentLabel } from "@/lib/departments"
 
 interface UserFiltersProps {
   departments: string[]
@@ -95,7 +96,7 @@ export function UserFilters({ departments }: UserFiltersProps) {
               <SelectItem value="all">{t("users.allDepartments")}</SelectItem>
               {departments.map((dept) => (
                 <SelectItem key={dept} value={dept}>
-                  {dept}
+                  {getDepartmentLabel(dept, locale)}
                 </SelectItem>
               ))}
             </SelectContent>
