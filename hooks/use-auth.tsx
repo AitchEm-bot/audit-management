@@ -21,12 +21,15 @@ interface AuthContextType {
   loading: boolean
   signOut: () => Promise<void>
   refreshProfile: () => Promise<void>
+  updateCachedProfile: (profile: Profile) => void
   hasRole: (roles: string | string[]) => boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 const PROFILE_CACHE_KEY = 'user_profile_cache'
+const PROFILE_CACHE_TIMESTAMP_KEY = 'user_profile_cache_timestamp'
+const CACHE_FRESHNESS_MS = 5 * 60 * 1000 // 5 minutes
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -47,8 +50,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = async (userId: string, forceRefresh = false) => {
     try {
+      // Check if we have a fresh cache and don't need to refetch
+      if (!forceRefresh) {
+        try {
+          const cachedTimestamp = localStorage.getItem(PROFILE_CACHE_TIMESTAMP_KEY)
+          const cached = localStorage.getItem(PROFILE_CACHE_KEY)
+
+          if (cached && cachedTimestamp) {
+            const timestamp = parseInt(cachedTimestamp, 10)
+            const age = Date.now() - timestamp
+
+            // If cache is fresh (<5 minutes), return cached data
+            if (age < CACHE_FRESHNESS_MS) {
+              const cachedProfile = JSON.parse(cached)
+              console.log(`useAuth: Using cached profile (age: ${Math.round(age / 1000)}s)`)
+              return cachedProfile
+            }
+          }
+        } catch (err) {
+          console.error("Failed to check cache freshness:", err)
+        }
+      }
+
+      // Cache is stale or forceRefresh requested, fetch from database
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error("Profile fetch timeout after 5 seconds")), 5000)
       )
@@ -62,10 +88,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return null
       }
 
-      // Cache the profile
+      // Cache the profile with timestamp
       if (data) {
         try {
           localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(data))
+          localStorage.setItem(PROFILE_CACHE_TIMESTAMP_KEY, Date.now().toString())
+          console.log("useAuth: Profile cached successfully")
         } catch (err) {
           console.error("Failed to cache profile:", err)
         }
@@ -80,8 +108,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshProfile = async () => {
     if (user) {
-      const profileData = await fetchProfile(user.id)
+      const profileData = await fetchProfile(user.id, true) // Force refresh
       setProfile(profileData)
+    }
+  }
+
+  const updateCachedProfile = (updatedProfile: Profile) => {
+    try {
+      // Update state immediately (optimistic update)
+      setProfile(updatedProfile)
+
+      // Update localStorage cache
+      localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(updatedProfile))
+      localStorage.setItem(PROFILE_CACHE_TIMESTAMP_KEY, Date.now().toString())
+      console.log("useAuth: Profile cache updated optimistically")
+    } catch (err) {
+      console.error("Failed to update cached profile:", err)
     }
   }
 
@@ -97,6 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setProfile(null)
     try {
       localStorage.removeItem(PROFILE_CACHE_KEY)
+      localStorage.removeItem(PROFILE_CACHE_TIMESTAMP_KEY)
     } catch (err) {
       console.error("Failed to clear profile cache:", err)
     }
@@ -145,6 +188,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loading,
         signOut,
         refreshProfile,
+        updateCachedProfile,
         hasRole,
       }}
     >

@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Save, CheckCircle, AlertCircle } from "lucide-react"
 import { updateProfile } from "@/app/profile/actions"
+import { useAuth } from "@/hooks/use-auth"
 
 interface Profile {
   id: string
@@ -26,6 +27,7 @@ interface ProfileFormProps {
 
 export function ProfileForm({ profile, userEmail }: ProfileFormProps) {
   const router = useRouter()
+  const { updateCachedProfile } = useAuth()
   const [formData, setFormData] = useState({
     full_name: profile.full_name,
     department: profile.department || "General",
@@ -45,6 +47,14 @@ export function ProfileForm({ profile, userEmail }: ProfileFormProps) {
         setMessage({ type: 'error', text: result.error })
       } else {
         setMessage({ type: 'success', text: 'Profile updated successfully!' })
+
+        // Update cache immediately before router.refresh() to prevent UI flash
+        updateCachedProfile({
+          ...profile,
+          full_name: formData.full_name,
+          department: formData.department,
+        })
+
         router.refresh()
       }
     } catch (error) {

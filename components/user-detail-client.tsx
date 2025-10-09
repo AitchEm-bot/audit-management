@@ -13,6 +13,7 @@ import Link from "next/link"
 import { useLanguage } from "@/contexts/language-context"
 import { useTranslation } from "@/lib/translations"
 import { createClient } from "@/lib/supabase/client"
+import { useAuth } from "@/hooks/use-auth"
 
 interface User {
   id: string
@@ -40,6 +41,7 @@ export function UserDetailClient({ user: initialUser }: UserDetailClientProps) {
   const { locale } = useLanguage()
   const { t } = useTranslation(locale)
   const supabase = createClient()
+  const { updateCachedProfile, profile: currentUserProfile } = useAuth()
 
   const [user, setUser] = useState(initialUser)
   const [formData, setFormData] = useState({
@@ -70,14 +72,22 @@ export function UserDetailClient({ user: initialUser }: UserDetailClientProps) {
         setMessage({ type: 'error', text: t("users.updateFailed") })
       } else {
         setMessage({ type: 'success', text: t("users.userUpdated") })
+
         // Update local state
-        setUser({
+        const updatedUser = {
           ...user,
           full_name: formData.full_name,
           department: formData.department,
           role: formData.role,
           updated_at: new Date().toISOString(),
-        })
+        }
+        setUser(updatedUser)
+
+        // If admin is editing their own profile, update the cache to prevent UI flash
+        if (currentUserProfile && currentUserProfile.id === user.id) {
+          updateCachedProfile(updatedUser)
+        }
+
         router.refresh()
       }
     } catch (error) {
