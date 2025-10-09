@@ -1,9 +1,17 @@
 import { createClient } from "@/lib/supabase/server"
-import { ProtectedRoute } from "@/components/protected-route"
-import { UserManagement } from "@/components/user-management"
+import { UserList } from "@/components/user-list"
 import { redirect } from "next/navigation"
 
-export default async function AdminPage() {
+interface PageProps {
+  searchParams?: Promise<{
+    page?: string
+    search?: string
+    role?: string
+    department?: string
+  }>
+}
+
+export default async function AdminPage({ searchParams }: PageProps) {
   const supabase = await createClient()
 
   const {
@@ -21,16 +29,75 @@ export default async function AdminPage() {
     redirect("/dashboard")
   }
 
-  return (
-    <ProtectedRoute requiredRoles={["admin"]}>
-      <div className="container mx-auto py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold">Admin Panel</h1>
-          <p className="text-muted-foreground">Manage users and system settings</p>
-        </div>
+  // Parse search params
+  const params = await searchParams
+  const page = parseInt(params?.page || "1", 10)
+  const pageSize = 20
+  const from = (page - 1) * pageSize
+  const to = from + pageSize - 1
 
-        <UserManagement />
+  // Build filters
+  const searchTerm = params?.search || undefined
+  const roleFilter = params?.role && params.role !== "all" ? params.role : undefined
+  const departmentFilter = params?.department && params.department !== "all" ? params.department : undefined
+
+  // Fetch unique departments for filter dropdown
+  const { data: deptData } = await supabase
+    .from("profiles")
+    .select("department")
+    .not("department", "is", null)
+
+  const departments = [...new Set(deptData?.map((item) => item.department) || [])]
+    .filter(Boolean)
+    .sort() as string[]
+
+  // Build query with filters
+  let query = supabase
+    .from("profiles")
+    .select("*", { count: "exact" })
+
+  // Apply search filter (fuzzy name matching)
+  if (searchTerm) {
+    query = query.ilike("full_name", `%${searchTerm}%`)
+  }
+
+  // Apply role filter
+  if (roleFilter) {
+    query = query.eq("role", roleFilter)
+  }
+
+  // Apply department filter
+  if (departmentFilter) {
+    query = query.eq("department", departmentFilter)
+  }
+
+  // Apply sorting and pagination
+  query = query
+    .order("created_at", { ascending: false })
+    .range(from, to)
+
+  const { data: users, error, count } = await query
+
+  if (error) {
+    console.error("Error fetching users:", error)
+  }
+
+  const totalCount = count || 0
+  const totalPages = Math.ceil(totalCount / pageSize)
+
+  console.log(`Fetched ${users?.length || 0} users (page ${page}, total: ${totalCount})`)
+
+  return (
+    <div className="container mx-auto py-8">
+      <div className="max-w-7xl mx-auto">
+        <UserList
+          users={users || []}
+          totalCount={totalCount}
+          totalPages={totalPages}
+          currentPage={page}
+          departments={departments}
+        />
       </div>
-    </ProtectedRoute>
+    </div>
   )
 }

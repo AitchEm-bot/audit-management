@@ -352,5 +352,33 @@
     "admin": "Admin",
     "administrator": "Administrator",
     "user": "Employee"
+  },
+  "users": {
+    "title": "User Management",
+    "subtitle": "Manage user accounts, roles, and permissions",
+    "cardDescription": "View and manage all system users",
+    "name": "Name",
+    "email": "Email",
+    "department": "Department",
+    "role": "Role",
+    "joinedAt": "Joined",
+    "actions": "Actions",
+    "noUsers": "No users found",
+    "viewDetails": "View Details",
+    "editUser": "Edit User",
+    "userDetails": "User Details",
+    "updateUserInfo": "Update user information below",
+    "fullName": "Full Name",
+    "saveChanges": "Save Changes",
+    "saving": "Saving...",
+    "userUpdated": "User updated successfully",
+    "updateFailed": "Failed to update user",
+    "backToUsers": "Back to Users",
+    "searchPlaceholder": "Search by name...",
+    "allRoles": "All Roles",
+    "allDepartments": "All Departments",
+    "userSingular": "user",
+    "userPlural": "users",
+    "showing": "Showing {start} to {end} of {total}"
   }
 }

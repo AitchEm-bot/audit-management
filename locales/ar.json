@@ -352,5 +352,33 @@
     "admin": "مسؤول",
     "administrator": "مسؤول النظام",
     "user": "موظف"
+  },
+  "users": {
+    "title": "إدارة المستخدمين",
+    "subtitle": "إدارة حسابات المستخدمين والأدوار والصلاحيات",
+    "cardDescription": "عرض وإدارة جميع مستخدمي النظام",
+    "name": "الاسم",
+    "email": "البريد الإلكتروني",
+    "department": "القسم",
+    "role": "الدور",
+    "joinedAt": "تاريخ الانضمام",
+    "actions": "الإجراءات",
+    "noUsers": "لم يتم العثور على مستخدمين",
+    "viewDetails": "عرض التفاصيل",
+    "editUser": "تعديل المستخدم",
+    "userDetails": "تفاصيل المستخدم",
+    "updateUserInfo": "قم بتحديث معلومات المستخدم أدناه",
+    "fullName": "الاسم الكامل",
+    "saveChanges": "حفظ التغييرات",
+    "saving": "جاري الحفظ...",
+    "userUpdated": "تم تحديث المستخدم بنجاح",
+    "updateFailed": "فشل تحديث المستخدم",
+    "backToUsers": "العودة إلى المستخدمين",
+    "searchPlaceholder": "البحث بالاسم...",
+    "allRoles": "جميع الأدوار",
+    "allDepartments": "جميع الأقسام",
+    "userSingular": "مستخدم",
+    "userPlural": "مستخدمين",
+    "showing": "عرض {start} إلى {end} من {total}"
   }
 }
