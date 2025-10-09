@@ -71,8 +71,9 @@ export default async function AdminPage({ searchParams }: PageProps) {
     query = query.eq("department", departmentFilter)
   }
 
-  // Apply sorting and pagination
+  // Apply sorting: pending users first (status DESC makes 'pending' come before 'active'), then by created_at
   query = query
+    .order("status", { ascending: false })
     .order("created_at", { ascending: false })
     .range(from, to)
 
@@ -86,6 +87,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
   const totalPages = Math.ceil(totalCount / pageSize)
 
   console.log(`Fetched ${users?.length || 0} users (page ${page}, total: ${totalCount})`)
+  console.log("Users data sample:", users?.map(u => ({ id: u.id, name: u.full_name, status: u.status })))
 
   return (
     <div className="container mx-auto py-8">

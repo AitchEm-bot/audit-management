@@ -20,6 +20,7 @@ export default function SignUpPage() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [fullName, setFullName] = useState("")
   const [department, setDepartment] = useState("")
+  const [role, setRole] = useState("emp")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
@@ -52,6 +53,8 @@ export default function SignUpPage() {
           data: {
             full_name: fullName,
             department: department,
+            role: role,
+            status: 'pending', // New users start as pending
           },
         },
       })
@@ -106,6 +109,22 @@ export default function SignUpPage() {
                         <SelectItem value="Marketing">Marketing</SelectItem>
                         <SelectItem value="Sales">Sales</SelectItem>
                         <SelectItem value="General">General</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="role">Role</Label>
+                    <Select
+                      value={role}
+                      onValueChange={setRole}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select your role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="emp">Employee</SelectItem>
+                        <SelectItem value="manager">Manager</SelectItem>
+                        <SelectItem value="exec">Executive</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

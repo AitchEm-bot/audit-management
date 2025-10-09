@@ -12,9 +12,10 @@ import { useTranslation } from "@/lib/translations"
 import { UserFilters } from "@/components/user-filters"
 import { UserPagination } from "@/components/user-pagination"
 import { DeleteUserDialog } from "@/components/delete-user-dialog"
-import { deleteUser } from "@/app/admin/actions"
+import { deleteUser, approveUser, rejectUser } from "@/app/admin/actions"
 import { useAuth } from "@/hooks/use-auth"
 import { useState } from "react"
+import { Check, X } from "lucide-react"
 
 interface User {
   id: string
@@ -22,6 +23,7 @@ interface User {
   email: string
   department: string | null
   role: "emp" | "manager" | "exec" | "admin"
+  status: "pending" | "active"
   created_at: string
 }
 
@@ -71,6 +73,42 @@ export function UserList({ users, totalCount, totalPages, currentPage, departmen
       throw new Error(result.error)
     } else {
       // Refresh the page to show updated list
+      router.refresh()
+    }
+  }
+
+  const handleApprove = async (userId: string) => {
+    console.log("=== handleApprove called ===")
+    console.log("userId:", userId)
+
+    setLoadingUserId(userId)
+    console.log("Loading state set for user:", userId)
+
+    const result = await approveUser(userId)
+    console.log("approveUser result:", result)
+
+    setLoadingUserId(null)
+    console.log("Loading state cleared")
+
+    if (result?.error) {
+      console.log("Error in result:", result.error)
+      setMessage({ type: 'error', text: result.error })
+    } else {
+      console.log("Success! Refreshing router...")
+      setMessage({ type: 'success', text: 'User approved successfully' })
+      router.refresh()
+    }
+  }
+
+  const handleReject = async (userId: string) => {
+    setLoadingUserId(userId)
+    const result = await rejectUser(userId)
+    setLoadingUserId(null)
+
+    if (result?.error) {
+      setMessage({ type: 'error', text: result.error })
+    } else {
+      setMessage({ type: 'success', text: 'User rejected successfully' })
       router.refresh()
     }
   }
@@ -146,31 +184,68 @@ export function UserList({ users, totalCount, totalPages, currentPage, departmen
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleViewClick(user.id)
-                            }}
-                            title={t("users.viewDetails")}
-                            className="cursor-pointer"
-                            disabled={loadingUserId === user.id}
-                          >
-                            {loadingUserId === user.id ? (
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
-                            ) : (
-                              <Eye className="h-4 w-4" />
-                            )}
-                          </Button>
+                          {user.status === 'pending' ? (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleApprove(user.id)
+                                }}
+                                title="Accept"
+                                className="cursor-pointer text-green-600 hover:text-white hover:bg-green-600"
+                                disabled={loadingUserId === user.id}
+                              >
+                                {loadingUserId === user.id ? (
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                                ) : (
+                                  <Check className="h-4 w-4" />
+                                )}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleReject(user.id)
+                                }}
+                                title="Reject"
+                                className="cursor-pointer text-destructive hover:text-white hover:bg-destructive"
+                                disabled={loadingUserId === user.id}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleViewClick(user.id)
+                                }}
+                                title={t("users.viewDetails")}
+                                className="cursor-pointer"
+                                disabled={loadingUserId === user.id}
+                              >
+                                {loadingUserId === user.id ? (
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                                ) : (
+                                  <Eye className="h-4 w-4" />
+                                )}
+                              </Button>
 
-                          <DeleteUserDialog
-                            userId={user.id}
-                            userName={user.full_name}
-                            onDelete={() => handleDelete(user.id)}
-                            disabled={currentUserProfile?.id === user.id || loadingUserId === user.id}
-                            iconOnly={true}
-                          />
+                              <DeleteUserDialog
+                                userId={user.id}
+                                userName={user.full_name}
+                                onDelete={() => handleDelete(user.id)}
+                                disabled={currentUserProfile?.id === user.id || loadingUserId === user.id}
+                                iconOnly={true}
+                              />
+                            </>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

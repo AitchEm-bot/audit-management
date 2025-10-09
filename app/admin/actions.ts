@@ -4,6 +4,107 @@ import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 
+export async function approveUser(userId: string) {
+  console.log("=== approveUser called ===")
+  console.log("userId:", userId)
+
+  const supabase = await createClient()
+
+  // Check if current user is admin
+  const {
+    data: { user: currentUser },
+  } = await supabase.auth.getUser()
+
+  console.log("Current user:", currentUser?.id)
+
+  if (!currentUser) {
+    console.log("ERROR: Not authenticated")
+    return { error: "Not authenticated" }
+  }
+
+  const { data: currentProfile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", currentUser.id)
+    .single()
+
+  console.log("Current profile:", currentProfile)
+  console.log("Profile fetch error:", profileError)
+
+  if (!currentProfile || currentProfile.role !== "admin") {
+    console.log("ERROR: Unauthorized - not admin")
+    return { error: "Unauthorized - Admin access required" }
+  }
+
+  try {
+    console.log("Attempting to update user status to active...")
+
+    // Update user status to active
+    const { data: updateData, error } = await supabase
+      .from("profiles")
+      .update({ status: "active" })
+      .eq("id", userId)
+      .select()
+
+    console.log("Update result:", updateData)
+    console.log("Update error:", error)
+
+    if (error) {
+      console.error("Error approving user:", error)
+      return { error: "Failed to approve user" }
+    }
+
+    console.log("User approved successfully, revalidating path...")
+    revalidatePath("/admin")
+    return { success: true }
+  } catch (error) {
+    console.error("Error in approveUser:", error)
+    return { error: "An unexpected error occurred" }
+  }
+}
+
+export async function rejectUser(userId: string) {
+  const supabase = await createClient()
+
+  // Check if current user is admin
+  const {
+    data: { user: currentUser },
+  } = await supabase.auth.getUser()
+
+  if (!currentUser) {
+    return { error: "Not authenticated" }
+  }
+
+  const { data: currentProfile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", currentUser.id)
+    .single()
+
+  if (!currentProfile || currentProfile.role !== "admin") {
+    return { error: "Unauthorized - Admin access required" }
+  }
+
+  try {
+    // Delete the user's profile (this will also delete the auth user due to CASCADE)
+    const { error } = await supabase
+      .from("profiles")
+      .delete()
+      .eq("id", userId)
+
+    if (error) {
+      console.error("Error rejecting user:", error)
+      return { error: "Failed to reject user" }
+    }
+
+    revalidatePath("/admin")
+    return { success: true }
+  } catch (error) {
+    console.error("Error in rejectUser:", error)
+    return { error: "An unexpected error occurred" }
+  }
+}
+
 export async function deleteUser(userId: string) {
   const supabase = await createClient()
 
