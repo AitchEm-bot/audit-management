@@ -26,20 +26,56 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+const PROFILE_CACHE_KEY = 'user_profile_cache'
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
 
-  const fetchProfile = async (userId: string) => {
-    const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single()
+  // Load cached profile immediately
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem(PROFILE_CACHE_KEY)
+      if (cached) {
+        const cachedProfile = JSON.parse(cached)
+        setProfile(cachedProfile)
+      }
+    } catch (err) {
+      console.error("Failed to load cached profile:", err)
+    }
+  }, [])
 
-    if (error) {
-      console.error("Error fetching profile:", error)
+  const fetchProfile = async (userId: string) => {
+    try {
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Profile fetch timeout after 5 seconds")), 5000)
+      )
+
+      const fetchPromise = supabase.from("profiles").select("*").eq("id", userId).single()
+
+      const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any
+
+      if (error) {
+        console.error("useAuth: Error fetching profile:", error)
+        return null
+      }
+
+      // Cache the profile
+      if (data) {
+        try {
+          localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(data))
+        } catch (err) {
+          console.error("Failed to cache profile:", err)
+        }
+      }
+
+      return data
+    } catch (err) {
+      console.error("useAuth: Exception fetching profile:", err)
       return null
     }
-    return data
   }
 
   const refreshProfile = async () => {
@@ -56,9 +92,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signOut = async () => {
-    // Just clear local state - don't call Supabase (it may timeout)
+    // Clear local state and cache
     setUser(null)
     setProfile(null)
+    try {
+      localStorage.removeItem(PROFILE_CACHE_KEY)
+    } catch (err) {
+      console.error("Failed to clear profile cache:", err)
+    }
   }
 
   useEffect(() => {

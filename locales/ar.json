@@ -350,6 +350,7 @@
     "manager": "مدير",
     "exec": "تنفيذي",
     "admin": "مسؤول",
-    "administrator": "مسؤول النظام"
+    "administrator": "مسؤول النظام",
+    "user": "موظف"
   }
 }

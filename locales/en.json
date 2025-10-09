@@ -350,6 +350,7 @@
     "manager": "Manager",
     "exec": "Executive",
     "admin": "Admin",
-    "administrator": "Administrator"
+    "administrator": "Administrator",
+    "user": "Employee"
   }
 }

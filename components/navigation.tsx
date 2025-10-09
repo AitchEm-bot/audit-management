@@ -27,6 +27,15 @@ export function Navigation() {
     await serverSignOut()
   }
 
+  // Helper function to get role display with fallback for legacy roles
+  const getRoleDisplay = (role: string) => {
+    const translation = t(`roles.${role}`)
+    // If translation not found, capitalize the role name
+    return translation.startsWith("roles.")
+      ? role.charAt(0).toUpperCase() + role.slice(1)
+      : translation
+  }
+
   if (!user) {
     return null
   }
@@ -62,11 +71,11 @@ export function Navigation() {
           </div>
 
           <div className="flex items-center space-x-4">
-            {profile && (
-              <div className="hidden md:flex items-center space-x-2">
-                <span className="text-sm text-muted-foreground">{profile.full_name}</span>
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-muted-foreground hidden sm:inline">{profile?.full_name || user?.email}</span>
+              {profile?.role && (
                 <span
-                  className={`text-xs px-2 py-1 rounded-full ${
+                  className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${
                     profile.role === "admin"
                       ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
                       : profile.role === "exec"
@@ -76,10 +85,10 @@ export function Navigation() {
                           : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
                   }`}
                 >
-                  {t(`roles.${profile.role}`)}
+                  {getRoleDisplay(profile.role)}
                 </span>
-              </div>
-            )}
+              )}
+            </div>
 
             <LanguageToggle />
 
