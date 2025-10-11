@@ -12,22 +12,35 @@ export default async function DashboardPage() {
     redirect("/auth/login")
   }
 
-  // Fetch user profile
+  // Fetch user profile with role and department
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, email")
+    .select("full_name, email, role, department")
     .eq("id", user.id)
     .single()
 
   const displayName = profile?.full_name || profile?.email?.split('@')[0] || 'there'
 
+  // Build query with role-based filtering
+  let statsQuery = supabase
+    .from("audit_tickets")
+    .select("status, priority, department, due_date, created_at, created_by, assigned_to")
+
+  // Apply role-based filtering
+  if (profile?.role === 'manager' && profile.department) {
+    // Managers see only their department + General
+    statsQuery = statsQuery.or(`department.eq.${profile.department},department.eq.General,department.is.null`)
+  } else if (profile?.role === 'emp' && profile.department) {
+    // Employees see their department + personal tickets
+    statsQuery = statsQuery.or(`department.eq.${profile.department},department.eq.General,created_by.eq.${user.id},assigned_to.eq.${user.id}`)
+  }
+  // Admins and Execs see everything (no additional filtering)
+
   // Use full query server-side since server-side queries work fine
   let stats = null
   try {
     // Fetch all ticket data to calculate proper stats
-    const { data: tickets, error } = await supabase
-      .from("audit_tickets")
-      .select("status, priority, department, due_date, created_at")
+    const { data: tickets, error } = await statsQuery
 
     if (error) {
       console.error("Error fetching tickets for dashboard stats:", error)
@@ -105,5 +118,12 @@ export default async function DashboardPage() {
     }
   }
 
-  return <DashboardContent displayName={displayName} stats={stats} />
+  return (
+    <DashboardContent
+      displayName={displayName}
+      stats={stats}
+      userRole={profile?.role}
+      userDepartment={profile?.department}
+    />
+  )
 }

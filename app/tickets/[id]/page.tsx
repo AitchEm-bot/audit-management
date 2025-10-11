@@ -18,7 +18,7 @@ export default async function TicketPage({ params }: TicketPageProps) {
     redirect("/auth/login")
   }
 
-  // Fetch ticket server-side
+  // Fetch ticket server-side with approval fields
   let ticket = null
   try {
     const { data, error } = await supabase
@@ -42,10 +42,23 @@ export default async function TicketPage({ params }: TicketPageProps) {
         assignedProfile = profile
       }
 
+      // Fetch manager approver profile if ticket was approved
+      let managerApprover = null
+      if (data.manager_approved_by) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name, email")
+          .eq("id", data.manager_approved_by)
+          .single()
+
+        managerApprover = profile
+      }
+
       ticket = {
         ...data,
         profiles: { full_name: "Unknown User", email: "" },
-        assigned_profile: assignedProfile
+        assigned_profile: assignedProfile,
+        manager_approver: managerApprover
       }
       console.log("Fetched ticket server-side:", ticket?.title)
     }

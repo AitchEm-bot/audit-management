@@ -25,6 +25,9 @@ export default async function TicketsPage({ searchParams }: PageProps) {
 
   const queries = createSupabaseQueries(supabase)
 
+  // Get user profile for role-based filtering
+  const userProfile = await queries.getCurrentUserProfile()
+
   // Parse search params
   const page = parseInt(searchParams?.page || "1", 10)
   const pageSize = 20
@@ -53,7 +56,8 @@ export default async function TicketsPage({ searchParams }: PageProps) {
     const { data, count, pageInfo, error } = await queries.getTicketsPaginated(
       filters,
       { page, pageSize },
-      { column: "created_at", ascending: false }
+      { column: "created_at", ascending: false },
+      userProfile // Pass user profile for role-based filtering
     )
 
     if (error) {

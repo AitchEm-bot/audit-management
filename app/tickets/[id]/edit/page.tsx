@@ -43,6 +43,13 @@ export default async function EditTicketPage({ params }: EditTicketPageProps) {
     }
   }
 
+  // Fetch user profile with role
+  const { data: userProfile } = await supabase
+    .from("profiles")
+    .select("id, full_name, email, role, department")
+    .eq("id", user.id)
+    .single()
+
   // Fetch comment count for the close dialog
   let commentCount = 0
   try {
@@ -64,6 +71,7 @@ export default async function EditTicketPage({ params }: EditTicketPageProps) {
           ticket={ticket}
           availableUsers={availableUsers}
           commentCount={commentCount}
+          userProfile={userProfile}
         />
       </div>
     </div>

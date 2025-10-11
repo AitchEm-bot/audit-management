@@ -33,18 +33,22 @@ interface UserProfile {
   id: string
   full_name: string
   email: string
+  role?: string
+  department?: string
 }
 
 interface EditTicketFormProps {
   ticket: Ticket
   availableUsers?: UserProfile[]
   commentCount?: number
+  userProfile?: UserProfile | null
 }
 
 export function EditTicketForm({
   ticket: initialTicket,
   availableUsers: initialAvailableUsers = [],
-  commentCount: initialCommentCount = 0
+  commentCount: initialCommentCount = 0,
+  userProfile
 }: EditTicketFormProps) {
   const { locale } = useLanguage()
   const { t } = useTranslation(locale)
@@ -194,24 +198,50 @@ export function EditTicketForm({
 
             <div className="space-y-2">
               <Label htmlFor="department">{t("tickets.department")}</Label>
-              <Select
-                value={ticket.department || "General"}
-                onValueChange={(value) => setTicket({ ...ticket, department: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="IT">{t("tickets.deptIT")}</SelectItem>
-                  <SelectItem value="Finance">{t("tickets.deptFinance")}</SelectItem>
-                  <SelectItem value="HR">{t("tickets.deptHR")}</SelectItem>
-                  <SelectItem value="Operations">{t("tickets.deptOperations")}</SelectItem>
-                  <SelectItem value="Legal">{t("tickets.deptLegal")}</SelectItem>
-                  <SelectItem value="Marketing">Marketing</SelectItem>
-                  <SelectItem value="Sales">Sales</SelectItem>
-                  <SelectItem value="General">{t("tickets.deptGeneral")}</SelectItem>
-                </SelectContent>
-              </Select>
+              {userProfile?.role === 'manager' ? (
+                // Managers can only change to General or keep current department
+                <Select
+                  value={ticket.department || "General"}
+                  onValueChange={(value) => {
+                    // Managers can only change department to General
+                    if (value === "General") {
+                      setTicket({ ...ticket, department: value })
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ticket.department !== "General" && (
+                      <SelectItem value={ticket.department} disabled>
+                        {translateDepartment(ticket.department, t)} ({t("tickets.currentDepartment")})
+                      </SelectItem>
+                    )}
+                    <SelectItem value="General">{t("tickets.deptGeneral")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : (
+                // Admins and Execs can change to any department
+                <Select
+                  value={ticket.department || "General"}
+                  onValueChange={(value) => setTicket({ ...ticket, department: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="IT">{t("tickets.deptIT")}</SelectItem>
+                    <SelectItem value="Finance">{t("tickets.deptFinance")}</SelectItem>
+                    <SelectItem value="HR">{t("tickets.deptHR")}</SelectItem>
+                    <SelectItem value="Operations">{t("tickets.deptOperations")}</SelectItem>
+                    <SelectItem value="Legal">{t("tickets.deptLegal")}</SelectItem>
+                    <SelectItem value="Marketing">Marketing</SelectItem>
+                    <SelectItem value="Sales">Sales</SelectItem>
+                    <SelectItem value="General">{t("tickets.deptGeneral")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
             </div>
 
             <div className="space-y-2">

@@ -67,9 +67,35 @@ export function TicketList({ tickets, departments, totalCount, totalPages, curre
   const router = useRouter()
   const { locale } = useLanguage()
   const { t } = useTranslation(locale)
-  const { hasRole } = useAuth()
+  const { hasRole, profile } = useAuth()
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const supabase = createClient()
+
+  // Check if user can edit/delete tickets
+  const canEditTicket = (ticket: Ticket) => {
+    // Admins and Execs can edit any ticket
+    if (hasRole(['admin', 'exec'])) return true
+
+    // Managers can edit tickets in their department
+    if (hasRole('manager') && profile?.department) {
+      return ticket.department === profile.department || ticket.department === 'General'
+    }
+
+    // Employees cannot edit tickets
+    return false
+  }
+
+  const canDeleteTicket = (ticket: Ticket) => {
+    // Only managers, execs, and admins can delete
+    if (!hasRole(['manager', 'exec', 'admin'])) return false
+
+    // For managers, check department
+    if (hasRole('manager') && profile?.department) {
+      return ticket.department === profile.department || ticket.department === 'General'
+    }
+
+    return hasRole(['admin', 'exec'])
+  }
 
   const handleRowClick = (ticketId: string, e: React.MouseEvent) => {
     // Don't navigate if clicking on buttons or links
@@ -155,78 +181,76 @@ export function TicketList({ tickets, departments, totalCount, totalPages, curre
                       onClick={(e) => handleRowClick(ticket.id, e)}
                     >
                       <TableCell className="font-mono text-sm">
-                        <Link href={`/tickets/${ticket.id}`} className="block w-full">
-                          {ticket.ticket_number}
-                        </Link>
+                        {ticket.ticket_number}
                       </TableCell>
                       <TableCell>
-                        <Link href={`/tickets/${ticket.id}`} className="block w-full hover:underline">
-                          <div>
-                            <div className="font-medium">{ticket.title || t("tickets.untitled")}</div>
-                            {ticket.description && (
-                              <div className="text-sm text-muted-foreground truncate max-w-xs">
-                                {ticket.description}
-                              </div>
-                            )}
+                        <div>
+                          <div className="font-medium">{ticket.title || t("tickets.untitled")}</div>
+                          {ticket.description && (
+                            <div className="text-sm text-muted-foreground truncate max-w-xs">
+                              {ticket.description}
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {translateDepartment(ticket.department, t)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={priorityColors[ticket.priority as keyof typeof priorityColors]}>
+                          {translatePriority(ticket.priority, t)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={statusColors[ticket.status as keyof typeof statusColors]}>
+                          {translateStatus(ticket.status, t)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {ticket.assigned_profile ? (
+                          <div className="flex items-center gap-2">
+                            <User className="h-4 w-4" />
+                            <span className="text-sm">{ticket.assigned_profile.full_name}</span>
                           </div>
-                        </Link>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">{t("tickets.unassigned")}</span>
+                        )}
                       </TableCell>
                       <TableCell>
-                        <Link href={`/tickets/${ticket.id}`} className="block w-full">
-                          {translateDepartment(ticket.department, t)}
-                        </Link>
-                      </TableCell>
-                      <TableCell>
-                        <Link href={`/tickets/${ticket.id}`} className="block w-full">
-                          <Badge className={priorityColors[ticket.priority as keyof typeof priorityColors]}>
-                            {translatePriority(ticket.priority, t)}
-                          </Badge>
-                        </Link>
-                      </TableCell>
-                      <TableCell>
-                        <Link href={`/tickets/${ticket.id}`} className="block w-full">
-                          <Badge className={statusColors[ticket.status as keyof typeof statusColors]}>
-                            {translateStatus(ticket.status, t)}
-                          </Badge>
-                        </Link>
-                      </TableCell>
-                      <TableCell>
-                        <Link href={`/tickets/${ticket.id}`} className="block w-full">
-                          {ticket.assigned_profile ? (
-                            <div className="flex items-center gap-2">
-                              <User className="h-4 w-4" />
-                              <span className="text-sm">{ticket.assigned_profile.full_name}</span>
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground text-sm">{t("tickets.unassigned")}</span>
-                          )}
-                        </Link>
-                      </TableCell>
-                      <TableCell>
-                        <Link href={`/tickets/${ticket.id}`} className="block w-full">
-                          {ticket.due_date ? (
-                            <div className="flex items-center gap-2">
-                              <Calendar className="h-4 w-4" />
-                              <span className="text-sm">{formatDate(ticket.due_date, locale)}</span>
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground text-sm">{t("tickets.noDueDate")}</span>
-                          )}
-                        </Link>
+                        {ticket.due_date ? (
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4" />
+                            <span className="text-sm">{formatDate(ticket.due_date, locale)}</span>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">{t("tickets.noDueDate")}</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
-                          <Button variant="outline" size="sm" asChild>
-                            <Link href={`/tickets/${ticket.id}`}>
-                              <Eye className="h-4 w-4" />
-                            </Link>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              router.push(`/tickets/${ticket.id}`)
+                            }}
+                          >
+                            <Eye className="h-4 w-4" />
                           </Button>
-                          <Button variant="outline" size="sm" asChild>
-                            <Link href={`/tickets/${ticket.id}/edit`}>
+                          {canEditTicket(ticket) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                router.push(`/tickets/${ticket.id}/edit`)
+                              }}
+                            >
                               <Edit className="h-4 w-4" />
-                            </Link>
-                          </Button>
-                          {hasRole(['manager', 'exec', 'admin']) && (
+                            </Button>
+                          )}
+                          {canDeleteTicket(ticket) && (
                             <Button
                               variant="ghost"
                               size="sm"

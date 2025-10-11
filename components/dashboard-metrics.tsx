@@ -52,9 +52,10 @@ const STATUS_COLORS = {
 
 interface DashboardMetricsProps {
   initialStats?: TicketStats
+  userRole?: string
 }
 
-export function DashboardMetrics({ initialStats }: DashboardMetricsProps) {
+export function DashboardMetrics({ initialStats, userRole }: DashboardMetricsProps) {
   const { locale } = useLanguage()
   const { t } = useTranslation(locale)
   const isRTL = locale === 'ar'
@@ -493,8 +494,8 @@ export function DashboardMetrics({ initialStats }: DashboardMetricsProps) {
         </Card>
       </div>
 
-      {/* Department Breakdown */}
-      {departmentData.length > 0 && (
+      {/* Department Breakdown - Hidden for managers (they only see their department) */}
+      {departmentData.length > 0 && userRole !== 'manager' && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

@@ -28,14 +28,32 @@ export class SupabaseQueries {
   constructor(private supabase: SupabaseClient) {}
 
   /**
+   * Get current user's profile with role and department
+   */
+  async getCurrentUserProfile() {
+    const { data: { user } } = await this.supabase.auth.getUser()
+    if (!user) return null
+
+    const { data: profile } = await this.supabase
+      .from("profiles")
+      .select("id, full_name, email, department, role")
+      .eq("id", user.id)
+      .single()
+
+    return profile
+  }
+
+  /**
    * Simplified query for fetching paginated tickets (basic functionality)
+   * Now includes role-based department filtering
    */
   async getTicketsPaginated(
     filters: TicketFilters = {},
     pagination: PaginationParams = {},
-    sort: SortOptions = { column: "created_at", ascending: false }
+    sort: SortOptions = { column: "created_at", ascending: false },
+    userProfile?: any // Optional user profile for role-based filtering
   ) {
-    console.log("getTicketsPaginated called with:", { filters, pagination, sort })
+    console.log("getTicketsPaginated called with:", { filters, pagination, sort, userRole: userProfile?.role })
     const { page = 1, pageSize = 50 } = pagination
     const from = (page - 1) * pageSize
     const to = from + pageSize - 1
@@ -57,10 +75,29 @@ export class SupabaseQueries {
         created_at,
         updated_at,
         created_by,
-        assigned_to
+        assigned_to,
+        requires_manager_approval,
+        approval_status
       `,
         { count: "exact" }
       )
+
+    // Apply role-based department filtering BEFORE other filters
+    if (userProfile) {
+      if (userProfile.role === 'manager' && userProfile.department) {
+        // Managers see only their department + General tickets
+        query = query.or(`department.eq.${userProfile.department},department.eq.General,department.is.null`)
+        console.log(`Manager filter applied: showing ${userProfile.department} and General tickets`)
+      } else if (userProfile.role === 'emp' && userProfile.department) {
+        // Employees see their department tickets + tickets they created or are assigned to
+        const { data: { user } } = await this.supabase.auth.getUser()
+        if (user) {
+          query = query.or(`department.eq.${userProfile.department},department.eq.General,created_by.eq.${user.id},assigned_to.eq.${user.id}`)
+          console.log(`Employee filter applied: showing ${userProfile.department}, General, and personal tickets`)
+        }
+      }
+      // Admins and Execs see everything (no additional filtering)
+    }
 
     // Apply filters
     if (filters.status === "active") {
@@ -76,9 +113,20 @@ export class SupabaseQueries {
       query = query.in("priority", priorities)
     }
 
+    // Department filter should respect role-based filtering
     if (filters.department) {
       const departments = Array.isArray(filters.department) ? filters.department : [filters.department]
-      query = query.in("department", departments)
+      // For managers, only allow filtering within their accessible departments
+      if (userProfile?.role === 'manager' && userProfile.department) {
+        const allowedDepts = departments.filter(d =>
+          d === userProfile.department || d === 'General'
+        )
+        if (allowedDepts.length > 0) {
+          query = query.in("department", allowedDepts)
+        }
+      } else {
+        query = query.in("department", departments)
+      }
     }
 
     if (filters.assignedTo) {
@@ -168,27 +216,45 @@ export class SupabaseQueries {
   }
 
   /**
-   * Dashboard statistics with automatic fallback
+   * Dashboard statistics with automatic fallback and role-based filtering
    */
-  async getDashboardStats() {
+  async getDashboardStats(userProfile?: any) {
     // Skip optimized function for now, go directly to fallback until we fix it
-    console.log("getDashboardStats: Starting stats fetch")
-    const result = await this.getDashboardStatsFallback()
+    console.log("getDashboardStats: Starting stats fetch", { userRole: userProfile?.role })
+    const result = await this.getDashboardStatsFallback(userProfile)
     console.log("getDashboardStats: Result received:", result)
     return result
   }
 
   /**
-   * Fallback method for dashboard stats
+   * Fallback method for dashboard stats with role-based filtering
    */
-  private async getDashboardStatsFallback() {
+  private async getDashboardStatsFallback(userProfile?: any) {
     try {
-      console.log("getDashboardStatsFallback: Starting ticket query")
+      console.log("getDashboardStatsFallback: Starting ticket query", { userRole: userProfile?.role })
+
+      // Build query with role-based filtering
+      let query = this.supabase
+        .from("audit_tickets")
+        .select("status, priority, department, due_date, created_at, created_by, assigned_to")
+
+      // Apply role-based filtering
+      if (userProfile) {
+        if (userProfile.role === 'manager' && userProfile.department) {
+          // Managers see only their department + General
+          query = query.or(`department.eq.${userProfile.department},department.eq.General,department.is.null`)
+        } else if (userProfile.role === 'emp') {
+          // Employees see their department + personal tickets
+          const { data: { user } } = await this.supabase.auth.getUser()
+          if (user && userProfile.department) {
+            query = query.or(`department.eq.${userProfile.department},department.eq.General,created_by.eq.${user.id},assigned_to.eq.${user.id}`)
+          }
+        }
+        // Admins and Execs see everything
+      }
 
       // Add timeout to prevent hanging
-      const queryPromise = this.supabase
-        .from("audit_tickets")
-        .select("status, priority, department, due_date, created_at")
+      const queryPromise = query
 
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error("Query timeout after 10 seconds")), 10000)

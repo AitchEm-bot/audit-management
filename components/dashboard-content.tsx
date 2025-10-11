@@ -3,6 +3,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { DashboardMetrics } from "@/components/dashboard-metrics"
+import { PendingApprovalsCard } from "@/components/pending-approvals-card"
 import { Upload, FileText, BarChart3 } from "lucide-react"
 import Link from "next/link"
 import { useLanguage } from "@/contexts/language-context"
@@ -11,9 +12,11 @@ import { useTranslation } from "@/lib/translations"
 interface DashboardContentProps {
   displayName: string
   stats: any
+  userRole?: string
+  userDepartment?: string
 }
 
-export function DashboardContent({ displayName, stats }: DashboardContentProps) {
+export function DashboardContent({ displayName, stats, userRole, userDepartment }: DashboardContentProps) {
   const { locale } = useLanguage()
   const { t } = useTranslation(locale)
 
@@ -27,7 +30,10 @@ export function DashboardContent({ displayName, stats }: DashboardContentProps) 
           </p>
         </div>
 
-        <DashboardMetrics initialStats={stats} />
+        {/* Pending Approvals for Managers */}
+        <PendingApprovalsCard userRole={userRole} userDepartment={userDepartment} />
+
+        <DashboardMetrics initialStats={stats} userRole={userRole} />
 
         {/* Quick Actions */}
         <div className="mt-8">

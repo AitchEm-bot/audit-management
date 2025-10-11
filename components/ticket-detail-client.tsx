@@ -25,6 +25,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { addComment, updateTicketStatus as updateTicketStatusAction } from "@/app/tickets/[id]/actions"
 import { CloseTicketDialog } from "@/components/close-ticket-dialog"
 import { createClient } from "@/lib/supabase/client"
+import { useAuth } from "@/hooks/use-auth"
 import { useLanguage } from "@/contexts/language-context"
 import { useTranslation } from "@/lib/translations"
 import { formatDate } from "@/lib/date-utils"
@@ -43,11 +44,21 @@ interface Ticket {
   updated_at: string
   created_by: string
   assigned_to: string | null
+  requires_manager_approval?: boolean
+  approval_status?: string | null
+  manager_approved_by?: string | null
+  manager_approved_at?: string | null
+  approval_comment?: string | null
+  resolution_comment?: string | null
   profiles: {
     full_name: string
     email: string
   } | null
   assigned_profile: {
+    full_name: string
+    email: string
+  } | null
+  manager_approver?: {
     full_name: string
     email: string
   } | null
@@ -100,6 +111,24 @@ export function TicketDetailClient({ ticket, commentCount: initialCommentCount =
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Get auth context for role-based permissions
+  const { hasRole, profile, user } = useAuth()
+
+  // Check if user can edit this ticket
+  const canEditTicket = () => {
+    if (hasRole(['admin', 'exec'])) return true
+    if (hasRole('manager') && profile?.department) {
+      return ticket.department === profile.department || ticket.department === 'General'
+    }
+    return false
+  }
+
+  // All authenticated users can change status
+  // (Employees changing to 'closed' will trigger approval workflow)
+  const canChangeStatus = () => {
+    return true
+  }
 
   // Get success/error messages from URL
   const successMessage = searchParams.get('success')
@@ -231,12 +260,14 @@ export function TicketDetailClient({ ticket, commentCount: initialCommentCount =
           <h1 className="text-2xl font-bold">{ticket.title}</h1>
           <p className="text-muted-foreground font-mono">{ticket.ticket_number}</p>
         </div>
-        <Button variant="outline" asChild>
-          <Link href={`/tickets/${ticket.id}/edit`}>
-            <Edit className="h-4 w-4 mr-2" />
-            {t("common.edit")}
-          </Link>
-        </Button>
+        {canEditTicket() && (
+          <Button variant="outline" asChild>
+            <Link href={`/tickets/${ticket.id}/edit`}>
+              <Edit className="h-4 w-4 mr-2" />
+              {t("common.edit")}
+            </Link>
+          </Button>
+        )}
       </div>
 
       {/* Success/Error Messages */}
@@ -260,6 +291,58 @@ export function TicketDetailClient({ ticket, commentCount: initialCommentCount =
           />
           <AlertDescription className="text-red-800">
             {errorMessage === 'pleaseProvideCommentOrFile' ? t('common.pleaseProvideCommentOrFile') : errorMessage}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Approval Status Alerts */}
+      {ticket.approval_status === 'pending' && (
+        <Alert className="border-blue-200 bg-blue-50">
+          <Clock
+            className="h-4 w-4 text-blue-600"
+            style={locale === 'ar' ? { transform: 'scaleX(1)' } : undefined}
+          />
+          <AlertDescription className="text-blue-800">
+            <p className="font-medium">{t('tickets.awaitingManagerApproval')}</p>
+            {ticket.resolution_comment && (
+              <p className="mt-2 text-sm">{t('tickets.yourClosingComment')}: {ticket.resolution_comment}</p>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {ticket.approval_status === 'approved' && ticket.manager_approver && (
+        <Alert className="border-green-200 bg-green-50">
+          <CheckCircle
+            className="h-4 w-4 text-green-600"
+            style={locale === 'ar' ? { transform: 'scaleX(1)' } : undefined}
+          />
+          <AlertDescription className="text-green-800">
+            <p className="font-medium">{t('tickets.closureApproved')}</p>
+            <p className="mt-1 text-sm">
+              {t('tickets.approvedBy')}: {ticket.manager_approver.full_name}
+            </p>
+            {ticket.approval_comment && (
+              <p className="mt-2 text-sm italic">"{ticket.approval_comment}"</p>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {ticket.approval_status === 'rejected' && ticket.manager_approver && (
+        <Alert className="border-red-200 bg-red-50">
+          <AlertCircle
+            className="h-4 w-4 text-red-600"
+            style={locale === 'ar' ? { transform: 'scaleX(1)' } : undefined}
+          />
+          <AlertDescription className="text-red-800">
+            <p className="font-medium">{t('tickets.closureRejected')}</p>
+            <p className="mt-1 text-sm">
+              {t('tickets.rejectedBy')}: {ticket.manager_approver.full_name}
+            </p>
+            {ticket.approval_comment && (
+              <p className="mt-2 text-sm font-medium">{t('tickets.rejectionReason')}: "{ticket.approval_comment}"</p>
+            )}
           </AlertDescription>
         </Alert>
       )}
@@ -394,21 +477,27 @@ export function TicketDetailClient({ ticket, commentCount: initialCommentCount =
               <div>
                 <label className="text-sm font-medium text-muted-foreground">{t("tickets.status")}</label>
                 <div className="mt-1">
-                  <Select
-                    value={ticket.status}
-                    onValueChange={updateTicketStatus}
-                    disabled={statusUpdating}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="open">{t("tickets.statusOpen")}</SelectItem>
-                      <SelectItem value="in_progress">{t("tickets.statusInProgress")}</SelectItem>
-                      <SelectItem value="resolved">{t("tickets.statusResolved")}</SelectItem>
-                      <SelectItem value="closed">{t("tickets.statusClosed")}</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {canChangeStatus() ? (
+                    <Select
+                      value={ticket.status}
+                      onValueChange={updateTicketStatus}
+                      disabled={statusUpdating}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="open">{t("tickets.statusOpen")}</SelectItem>
+                        <SelectItem value="in_progress">{t("tickets.statusInProgress")}</SelectItem>
+                        <SelectItem value="resolved">{t("tickets.statusResolved")}</SelectItem>
+                        <SelectItem value="closed">{t("tickets.statusClosed")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Badge className={statusColors[ticket.status as keyof typeof statusColors]}>
+                      {translateStatus(ticket.status, t)}
+                    </Badge>
+                  )}
                 </div>
               </div>
 

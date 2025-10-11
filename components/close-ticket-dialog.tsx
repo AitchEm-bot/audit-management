@@ -17,6 +17,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Sparkles, Loader2, CheckCircle2, AlertCircle } from "lucide-react"
 import { closeTicketWithComment } from "@/app/tickets/[id]/actions"
 import { createClient } from "@/lib/supabase/client"
+import { useAuth } from "@/hooks/use-auth"
 
 interface CloseTicketDialogProps {
   open: boolean
@@ -32,12 +33,16 @@ export function CloseTicketDialog({
   commentCount: initialCommentCount,
 }: CloseTicketDialogProps) {
   const router = useRouter()
+  const { hasRole } = useAuth()
   const [closingComment, setClosingComment] = useState("")
   const [isGenerating, setIsGenerating] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [commentCount, setCommentCount] = useState(initialCommentCount || 0)
   const [wasAIGenerated, setWasAIGenerated] = useState(false)
+
+  // Check if user is an employee (needs approval)
+  const isEmployee = hasRole('emp')
 
   // Fetch actual comment count when dialog opens
   useEffect(() => {
@@ -148,15 +153,43 @@ export function CloseTicketDialog({
     setError(null)
 
     try {
-      const result = await closeTicketWithComment(ticketId, closingComment.trim(), wasAIGenerated)
+      // Employees must request closure, managers/admins/execs can close directly
+      if (isEmployee) {
+        const supabase = createClient()
+        const { data, error: rpcError } = await supabase.rpc('request_ticket_closure', {
+          p_ticket_id: ticketId,
+          p_closing_comment: closingComment.trim()
+        })
 
-      if (result?.error) {
-        setError(result.error)
-        setIsSaving(false)
-      } else {
-        // Success - close dialog and refresh
+        if (rpcError) {
+          console.error('Error requesting closure:', rpcError)
+          setError(rpcError.message || 'Failed to request closure')
+          setIsSaving(false)
+          return
+        }
+
+        if (data?.error) {
+          setError(data.error)
+          setIsSaving(false)
+          return
+        }
+
+        // Success - show message and refresh
         onOpenChange(false)
+        router.push(`/tickets/${ticketId}?success=closureRequested`)
         router.refresh()
+      } else {
+        // Managers/Admins/Execs can close directly
+        const result = await closeTicketWithComment(ticketId, closingComment.trim(), wasAIGenerated)
+
+        if (result?.error) {
+          setError(result.error)
+          setIsSaving(false)
+        } else {
+          // Success - close dialog and refresh
+          onOpenChange(false)
+          router.refresh()
+        }
       }
     } catch (err) {
       console.error('Error closing ticket:', err)
@@ -178,10 +211,13 @@ export function CloseTicketDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CheckCircle2 className="h-5 w-5 text-green-600" />
-            Close Ticket
+            {isEmployee ? 'Request Ticket Closure' : 'Close Ticket'}
           </DialogTitle>
           <DialogDescription>
-            Before closing this ticket, please provide a final summary of the resolution.
+            {isEmployee
+              ? 'Request manager approval to close this ticket. Please provide a summary of the resolution.'
+              : 'Before closing this ticket, please provide a final summary of the resolution.'
+            }
             {commentCount > 0 && ` You can use AI to summarize the ${commentCount} comment${commentCount === 1 ? '' : 's'} in this thread.`}
           </DialogDescription>
         </DialogHeader>
@@ -259,12 +295,12 @@ export function CloseTicketDialog({
             {isSaving ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Closing...
+                {isEmployee ? 'Requesting...' : 'Closing...'}
               </>
             ) : (
               <>
                 <CheckCircle2 className="h-4 w-4" />
-                Close Ticket
+                {isEmployee ? 'Request Closure' : 'Close Ticket'}
               </>
             )}
           </Button>

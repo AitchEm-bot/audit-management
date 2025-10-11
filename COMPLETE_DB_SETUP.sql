@@ -55,12 +55,19 @@ CREATE TABLE public.audit_tickets (
   followup_response TEXT,
   management_updates TEXT,
 
-  -- Approval workflow fields
+  -- Approval workflow fields (Updated for role-based views)
   requires_approval BOOLEAN DEFAULT FALSE,
   approved_by UUID REFERENCES auth.users(id),
   approved_at TIMESTAMP WITH TIME ZONE,
   resolution_comment TEXT,
   closing_comment TEXT,
+
+  -- Role-based approval fields
+  requires_manager_approval BOOLEAN DEFAULT FALSE,
+  manager_approved_by UUID REFERENCES auth.users(id),
+  manager_approved_at TIMESTAMP WITH TIME ZONE,
+  approval_comment TEXT,
+  approval_status VARCHAR(20) DEFAULT NULL CHECK (approval_status IN (NULL, 'pending', 'approved', 'rejected')),
 
   -- Standard fields
   assigned_to UUID REFERENCES auth.users(id),
@@ -171,20 +178,83 @@ CREATE POLICY "Admins can delete any profile" ON public.profiles
   );
 
 -- =============================================================================
--- STEP 9: CREATE RLS POLICIES - AUDIT TICKETS
+-- STEP 9: CREATE RLS POLICIES - AUDIT TICKETS (Role-Based)
 -- =============================================================================
 
+-- All users can view tickets
 CREATE POLICY "Users can view all tickets" ON public.audit_tickets
   FOR SELECT USING (true);
 
+-- All users can create tickets
 CREATE POLICY "Users can create tickets" ON public.audit_tickets
   FOR INSERT WITH CHECK (auth.uid() = created_by);
 
-CREATE POLICY "Users can update their own tickets or assigned tickets" ON public.audit_tickets
-  FOR UPDATE USING (auth.uid() = created_by OR auth.uid() = assigned_to);
+-- Update policies based on roles
+-- Admins and Execs can update any ticket
+CREATE POLICY "Admins and execs can update any ticket" ON public.audit_tickets
+  FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role IN ('admin', 'exec')
+    )
+  );
 
-CREATE POLICY "Users can delete their own tickets" ON public.audit_tickets
-  FOR DELETE USING (auth.uid() = created_by);
+-- Managers can update tickets in their department
+CREATE POLICY "Managers can update tickets in their department" ON public.audit_tickets
+  FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role = 'manager'
+      AND (
+        audit_tickets.department = profiles.department
+        OR audit_tickets.department = 'General'
+        OR audit_tickets.department IS NULL
+      )
+    )
+  );
+
+-- Employees can only update their own created tickets
+CREATE POLICY "Employees can update their own tickets" ON public.audit_tickets
+  FOR UPDATE
+  USING (
+    auth.uid() = created_by
+    AND EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role = 'emp'
+    )
+  );
+
+-- Delete policies based on roles
+-- Admins and Execs can delete any ticket
+CREATE POLICY "Admins and execs can delete any ticket" ON public.audit_tickets
+  FOR DELETE
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role IN ('admin', 'exec')
+    )
+  );
+
+-- Managers can delete tickets in their department
+CREATE POLICY "Managers can delete tickets in their department" ON public.audit_tickets
+  FOR DELETE
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role = 'manager'
+      AND (
+        audit_tickets.department = profiles.department
+        OR audit_tickets.department = 'General'
+      )
+    )
+  );
 
 -- =============================================================================
 -- STEP 10: CREATE RLS POLICIES - TICKET ACTIVITIES
@@ -268,6 +338,15 @@ CREATE INDEX IF NOT EXISTS idx_audit_tickets_created_by ON public.audit_tickets(
 CREATE INDEX IF NOT EXISTS idx_audit_tickets_assigned_to ON public.audit_tickets(assigned_to);
 CREATE INDEX IF NOT EXISTS idx_audit_tickets_due_date ON public.audit_tickets(due_date);
 CREATE INDEX IF NOT EXISTS idx_audit_tickets_created_at ON public.audit_tickets(created_at);
+
+-- Role-based approval indexes
+CREATE INDEX IF NOT EXISTS idx_audit_tickets_approval_status
+ON public.audit_tickets(approval_status)
+WHERE approval_status IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_audit_tickets_requires_approval
+ON public.audit_tickets(requires_manager_approval)
+WHERE requires_manager_approval = true;
 
 -- Ticket activities indexes
 CREATE INDEX IF NOT EXISTS idx_ticket_activities_ticket_id ON public.ticket_activities(ticket_id);
@@ -503,6 +582,279 @@ BEGIN
     RETURN log_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- =============================================================================
+-- STEP 14A: ROLE-BASED WORKFLOW FUNCTIONS
+-- =============================================================================
+
+-- Function to handle ticket closure requests (for employees)
+CREATE OR REPLACE FUNCTION request_ticket_closure(
+  p_ticket_id UUID,
+  p_closing_comment TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_ticket RECORD;
+  v_user_role TEXT;
+  v_user_id UUID;
+BEGIN
+  v_user_id := auth.uid();
+
+  -- Get user role
+  SELECT role INTO v_user_role
+  FROM public.profiles
+  WHERE id = v_user_id;
+
+  -- Get ticket details
+  SELECT * INTO v_ticket
+  FROM public.audit_tickets
+  WHERE id = p_ticket_id;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('error', 'Ticket not found');
+  END IF;
+
+  -- Check if user can close directly (manager, exec, admin) or needs approval (employee)
+  IF v_user_role IN ('manager', 'exec', 'admin') THEN
+    -- Direct closure
+    UPDATE public.audit_tickets
+    SET
+      status = 'closed',
+      closing_comment = p_closing_comment,
+      updated_at = NOW()
+    WHERE id = p_ticket_id;
+
+    -- Log activity
+    INSERT INTO public.ticket_activities (
+      ticket_id, user_id, activity_type, content, new_value
+    ) VALUES (
+      p_ticket_id, v_user_id, 'status_change',
+      'Ticket closed by ' || v_user_role, 'closed'
+    );
+
+    RETURN jsonb_build_object('success', true, 'message', 'Ticket closed successfully');
+  ELSE
+    -- Employee needs manager approval
+    UPDATE public.audit_tickets
+    SET
+      requires_manager_approval = true,
+      approval_status = 'pending',
+      resolution_comment = p_closing_comment,
+      updated_at = NOW()
+    WHERE id = p_ticket_id;
+
+    -- Log activity
+    INSERT INTO public.ticket_activities (
+      ticket_id, user_id, activity_type, content
+    ) VALUES (
+      p_ticket_id, v_user_id, 'comment',
+      'Closure requested. Awaiting manager approval. Reason: ' || p_closing_comment
+    );
+
+    RETURN jsonb_build_object('success', true, 'message', 'Closure request submitted for manager approval');
+  END IF;
+END;
+$$;
+
+-- Function for manager approval of ticket closures
+CREATE OR REPLACE FUNCTION approve_ticket_closure(
+  p_ticket_id UUID,
+  p_approved BOOLEAN,
+  p_approval_comment TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_ticket RECORD;
+  v_user_role TEXT;
+  v_user_dept TEXT;
+  v_user_id UUID;
+BEGIN
+  v_user_id := auth.uid();
+
+  -- Get user role and department
+  SELECT role, department INTO v_user_role, v_user_dept
+  FROM public.profiles
+  WHERE id = v_user_id;
+
+  -- Check if user is a manager, exec, or admin
+  IF v_user_role NOT IN ('manager', 'exec', 'admin') THEN
+    RETURN jsonb_build_object('error', 'Unauthorized - Only managers can approve closures');
+  END IF;
+
+  -- Get ticket details
+  SELECT * INTO v_ticket
+  FROM public.audit_tickets
+  WHERE id = p_ticket_id;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('error', 'Ticket not found');
+  END IF;
+
+  -- Check if ticket requires approval
+  IF NOT v_ticket.requires_manager_approval THEN
+    RETURN jsonb_build_object('error', 'Ticket does not require approval');
+  END IF;
+
+  -- For managers, check department match
+  IF v_user_role = 'manager' AND
+     v_ticket.department != v_user_dept AND
+     v_ticket.department != 'General' THEN
+    RETURN jsonb_build_object('error', 'Unauthorized - Can only approve tickets in your department');
+  END IF;
+
+  IF p_approved THEN
+    -- Approve and close ticket
+    UPDATE public.audit_tickets
+    SET
+      status = 'closed',
+      approval_status = 'approved',
+      manager_approved_by = v_user_id,
+      manager_approved_at = NOW(),
+      approval_comment = p_approval_comment,
+      requires_manager_approval = false,
+      updated_at = NOW()
+    WHERE id = p_ticket_id;
+
+    -- Log activity
+    INSERT INTO public.ticket_activities (
+      ticket_id, user_id, activity_type, content, new_value
+    ) VALUES (
+      p_ticket_id, v_user_id, 'status_change',
+      'Closure approved by manager. Comment: ' || p_approval_comment, 'closed'
+    );
+
+    RETURN jsonb_build_object('success', true, 'message', 'Ticket closure approved');
+  ELSE
+    -- Reject closure request
+    UPDATE public.audit_tickets
+    SET
+      approval_status = 'rejected',
+      manager_approved_by = v_user_id,
+      manager_approved_at = NOW(),
+      approval_comment = p_approval_comment,
+      requires_manager_approval = false,
+      updated_at = NOW()
+    WHERE id = p_ticket_id;
+
+    -- Log activity
+    INSERT INTO public.ticket_activities (
+      ticket_id, user_id, activity_type, content
+    ) VALUES (
+      p_ticket_id, v_user_id, 'comment',
+      'Closure request rejected by manager. Reason: ' || p_approval_comment
+    );
+
+    RETURN jsonb_build_object('success', true, 'message', 'Ticket closure rejected');
+  END IF;
+END;
+$$;
+
+-- Function for department-based ticket assignment
+CREATE OR REPLACE FUNCTION assign_ticket_to_user(
+  p_ticket_id UUID,
+  p_assignee_id UUID
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_ticket RECORD;
+  v_user_role TEXT;
+  v_user_dept TEXT;
+  v_assignee_dept TEXT;
+  v_user_id UUID;
+BEGIN
+  v_user_id := auth.uid();
+
+  -- Get user role and department
+  SELECT role, department INTO v_user_role, v_user_dept
+  FROM public.profiles
+  WHERE id = v_user_id;
+
+  -- Get ticket details
+  SELECT * INTO v_ticket
+  FROM public.audit_tickets
+  WHERE id = p_ticket_id;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('error', 'Ticket not found');
+  END IF;
+
+  -- Get assignee department
+  SELECT department INTO v_assignee_dept
+  FROM public.profiles
+  WHERE id = p_assignee_id;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('error', 'Assignee not found');
+  END IF;
+
+  -- Check permissions
+  IF v_user_role = 'emp' THEN
+    RETURN jsonb_build_object('error', 'Employees cannot assign tickets');
+  END IF;
+
+  -- Managers can only assign to people in their department
+  IF v_user_role = 'manager' THEN
+    -- Check if manager can manage this ticket
+    IF v_ticket.department != v_user_dept AND v_ticket.department != 'General' THEN
+      RETURN jsonb_build_object('error', 'Can only assign tickets in your department');
+    END IF;
+
+    -- Check if assignee is in manager's department
+    IF v_assignee_dept != v_user_dept THEN
+      RETURN jsonb_build_object('error', 'Can only assign to users in your department');
+    END IF;
+  END IF;
+
+  -- Perform assignment
+  UPDATE public.audit_tickets
+  SET
+    assigned_to = p_assignee_id,
+    updated_at = NOW()
+  WHERE id = p_ticket_id;
+
+  -- Activity logging is handled by existing trigger
+
+  RETURN jsonb_build_object('success', true, 'message', 'Ticket assigned successfully');
+END;
+$$;
+
+-- Grant execute permissions for role-based functions
+GRANT EXECUTE ON FUNCTION request_ticket_closure TO authenticated;
+GRANT EXECUTE ON FUNCTION approve_ticket_closure TO authenticated;
+GRANT EXECUTE ON FUNCTION assign_ticket_to_user TO authenticated;
+
+-- =============================================================================
+-- STEP 14B: CREATE VIEW FOR PENDING APPROVALS
+-- =============================================================================
+
+-- View for managers to see pending approval requests
+CREATE OR REPLACE VIEW pending_approvals AS
+SELECT
+  t.id,
+  t.ticket_number,
+  t.title,
+  t.department,
+  t.resolution_comment,
+  t.created_by,
+  t.created_at,
+  p.full_name as requester_name,
+  p.email as requester_email
+FROM public.audit_tickets t
+LEFT JOIN public.profiles p ON t.created_by = p.id
+WHERE t.requires_manager_approval = true
+  AND t.approval_status = 'pending';
+
+-- Grant access to the view
+GRANT SELECT ON pending_approvals TO authenticated;
 
 -- =============================================================================
 -- STEP 15: CREATE TRIGGERS FOR ATTACHMENT ACTIVITY LOGGING
@@ -1177,10 +1529,22 @@ BEGIN
     RAISE NOTICE '  - get_profile_with_auth_status: Check email verification status';
     RAISE NOTICE '  - delete_user_completely: Simple user deletion with CASCADE';
     RAISE NOTICE '';
+    RAISE NOTICE 'Created role-based workflow functions:';
+    RAISE NOTICE '  - request_ticket_closure: Employee closure requests with manager approval';
+    RAISE NOTICE '  - approve_ticket_closure: Manager approval/rejection of closures';
+    RAISE NOTICE '  - assign_ticket_to_user: Department-based ticket assignment';
+    RAISE NOTICE '';
     RAISE NOTICE 'Created views:';
     RAISE NOTICE '  - profiles_with_auth: Joins profiles with auth.users for email verification';
+    RAISE NOTICE '  - pending_approvals: Manager view for pending closure approvals';
     RAISE NOTICE '';
     RAISE NOTICE 'All RLS policies, triggers, and indexes have been created.';
+    RAISE NOTICE '';
+    RAISE NOTICE 'Role-based access control:';
+    RAISE NOTICE '  - Admins & Executives: Full access to all tickets';
+    RAISE NOTICE '  - Managers: Department-specific access + General tickets';
+    RAISE NOTICE '  - Employees: Limited to own tickets + department view';
+    RAISE NOTICE '  - Approval workflow for employee ticket closures';
     RAISE NOTICE '';
     RAISE NOTICE 'Supported file types:';
     RAISE NOTICE '  - Images: JPEG, PNG, GIF, WebP, SVG';
