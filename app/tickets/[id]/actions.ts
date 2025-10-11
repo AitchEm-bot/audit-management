@@ -143,23 +143,38 @@ export async function addComment(ticketId: string, formData: FormData) {
   console.log('Comment added successfully:', activity.id)
 
   // Automatically change status from 'open' to 'in_progress' when user comments
+  // Only if user has permission to update the ticket
   try {
     const { data: currentTicket } = await supabase
       .from('audit_tickets')
-      .select('status')
+      .select('status, created_by')
       .eq('id', ticketId)
       .single()
 
     if (currentTicket?.status === 'open') {
-      const { error: statusError } = await supabase
-        .from('audit_tickets')
-        .update({ status: 'in_progress' })
-        .eq('id', ticketId)
+      // Check if user can update this ticket (either created it or has manager+ role)
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
 
-      if (statusError) {
-        console.error('Error auto-updating status:', statusError)
+      const canUpdateTicket = currentTicket.created_by === user.id ||
+                               (profile && ['manager', 'exec', 'admin'].includes(profile.role))
+
+      if (canUpdateTicket) {
+        const { error: statusError } = await supabase
+          .from('audit_tickets')
+          .update({ status: 'in_progress' })
+          .eq('id', ticketId)
+
+        if (statusError) {
+          console.error('Error auto-updating status:', statusError)
+        } else {
+          console.log('Status automatically changed from open to in_progress')
+        }
       } else {
-        console.log('Status automatically changed from open to in_progress')
+        console.log('User does not have permission to update ticket status - skipping auto-status change')
       }
     }
   } catch (statusError) {
@@ -331,14 +346,38 @@ export async function updateTicketStatus(ticketId: string, newStatus: string) {
   }
 
   try {
-    // First get the current status
+    // Get user profile and ticket details
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role, department')
+      .eq('id', user.id)
+      .single()
+
     const { data: currentTicket } = await supabase
       .from('audit_tickets')
-      .select('status')
+      .select('status, department, created_by')
       .eq('id', ticketId)
       .single()
 
+    if (!currentTicket) {
+      return { error: 'Ticket not found' }
+    }
+
+    // Check if user has permission to update status
+    // Allow admins, execs, and anyone for tickets in their department or General
+    const canUpdate =
+      profile?.role === 'admin' ||
+      profile?.role === 'exec' ||
+      (profile?.department &&
+       (currentTicket.department === profile.department || currentTicket.department === 'General'))
+
+    if (!canUpdate) {
+      console.error('User does not have permission to update ticket status')
+      return { error: 'You do not have permission to update this ticket status' }
+    }
+
     // Update the ticket status
+    // Note: The database trigger will automatically create the status_change activity
     const { error } = await supabase
       .from('audit_tickets')
       .update({ status: newStatus })
@@ -347,21 +386,6 @@ export async function updateTicketStatus(ticketId: string, newStatus: string) {
     if (error) {
       console.error('Error updating ticket status:', error)
       return { error: 'Failed to update ticket status' }
-    }
-
-    // Try to log the status change activity
-    try {
-      await supabase.from('ticket_activities').insert({
-        ticket_id: ticketId,
-        user_id: user.id,
-        activity_type: 'status_change',
-        content: `Status changed from ${currentTicket?.status} to ${newStatus}`,
-        old_value: currentTicket?.status,
-        new_value: newStatus,
-      })
-    } catch (activityError) {
-      console.error('Could not log status change activity:', activityError)
-      // Continue even if activity logging fails
     }
 
     console.log('Ticket status updated successfully')
@@ -520,21 +544,7 @@ export async function closeTicketWithComment(ticketId: string, closingComment: s
       console.error('Could not add closing comment to thread:', activityError)
     }
 
-    // Log the ticket closed activity
-    try {
-      await supabase.from('ticket_activities').insert({
-        ticket_id: ticketId,
-        user_id: user.id,
-        activity_type: 'status_change',
-        content: `Status changed from ${currentTicket?.status} to closed`,
-        old_value: currentTicket?.status,
-        new_value: 'closed',
-      })
-    } catch (activityError) {
-      console.error('Could not log status change activity:', activityError)
-      // Continue even if activity logging fails
-    }
-
+    // Note: The database trigger will automatically create the status_change activity
     console.log('Ticket closed successfully with closing comment')
 
     // Revalidate the page to show the changes

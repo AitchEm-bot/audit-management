@@ -24,12 +24,15 @@ import { formatDateTime } from "@/lib/date-utils"
 import { translateStatus, translatePriority } from "@/lib/ticket-utils"
 import { cn } from "@/lib/utils"
 import { AttachmentDisplay } from "@/components/attachment-display"
+import { ApprovalDialog } from "@/components/approval-dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { createClient } from "@/lib/supabase/client"
+import { useAuth } from "@/hooks/use-auth"
 
 interface Attachment {
   id: string
@@ -82,6 +85,10 @@ function getActivityIcon(activityType: string, activity?: TicketActivity) {
       return <FileIcon className="h-4 w-4" />
     case "ticket_created":
       return <GitCommit className="h-4 w-4" />
+    case "closure_request":
+      return <AlertCircle className="h-4 w-4" />
+    case "approval_response":
+      return activity?.metadata?.approved ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />
     default:
       return <Activity className="h-4 w-4" />
   }
@@ -106,6 +113,10 @@ function getActivityColor(activityType: string, activity?: TicketActivity) {
       return "text-gray-600"
     case "ticket_created":
       return "text-indigo-600"
+    case "closure_request":
+      return "text-yellow-600"
+    case "approval_response":
+      return activity?.metadata?.approved ? "text-green-600" : "text-red-600"
     default:
       return "text-gray-500"
   }
@@ -120,11 +131,14 @@ export default function TicketActivitiesClient({
   const router = useRouter()
   const { locale } = useLanguage()
   const { t } = useTranslation(locale)
+  const { hasRole, profile } = useAuth()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editContent, setEditContent] = useState("")
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [activityToDelete, setActivityToDelete] = useState<string | null>(null)
   const [isUpdating, setIsUpdating] = useState(false)
+  const [showApprovalDialog, setShowApprovalDialog] = useState(false)
+  const [selectedClosureRequest, setSelectedClosureRequest] = useState<any>(null)
 
   const startEdit = (activity: TicketActivity) => {
     setEditingId(activity.id)
@@ -183,6 +197,33 @@ export default function TicketActivitiesClient({
     } finally {
       setIsUpdating(false)
     }
+  }
+
+  const handleApprovalRequest = async (activity: TicketActivity) => {
+    // Get ticket details for the approval dialog
+    const supabase = createClient()
+    const { data: ticket } = await supabase
+      .from('audit_tickets')
+      .select('ticket_number, title, resolution_comment')
+      .eq('id', ticketId)
+      .single()
+
+    if (ticket) {
+      setSelectedClosureRequest({
+        id: ticketId,
+        ticket_number: ticket.ticket_number,
+        title: ticket.title,
+        resolution_comment: activity.content,
+        requester_name: activity.profiles?.full_name || 'Unknown'
+      })
+      setShowApprovalDialog(true)
+    }
+  }
+
+  const handleApprovalComplete = () => {
+    setShowApprovalDialog(false)
+    setSelectedClosureRequest(null)
+    router.refresh()
   }
 
   if (activities.length === 0) {
@@ -404,7 +445,76 @@ export default function TicketActivitiesClient({
                       <p>{t("tickets.createdThisTicket")}</p>
                     )}
 
-                    {!["comment", "status_change", "assignment_change", "priority_change", "ticket_created"].includes(activity.activity_type) && (
+                    {activity.activity_type === "closure_request" && (
+                      <div className="p-4 rounded-lg border-2 border-yellow-300 bg-yellow-50">
+                        <div className="flex items-center gap-2 mb-2">
+                          <AlertCircle className="h-5 w-5 text-yellow-700" />
+                          <span className="font-semibold text-yellow-800">
+                            {t("tickets.closureRequested")}
+                          </span>
+                          <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-400">
+                            {t("tickets.pendingReview")}
+                          </Badge>
+                        </div>
+                        <div className="mt-2 p-3 bg-white rounded border text-sm">
+                          <span className="font-medium">{t("tickets.reason")}:</span>
+                          <p className="mt-1 whitespace-pre-wrap text-gray-700">{activity.content}</p>
+                        </div>
+                        {hasRole(['manager', 'exec', 'admin']) && !isTicketClosed && activity.metadata?.approval_status === 'pending' && (
+                          <div className="mt-3 flex gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => handleApprovalRequest(activity)}
+                              className="bg-green-600 hover:bg-green-700"
+                            >
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              {t("tickets.reviewRequest")}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {activity.activity_type === "approval_response" && (
+                      <div className={cn(
+                        "p-4 rounded-lg border-2",
+                        activity.metadata?.approved
+                          ? "border-green-300 bg-green-50"
+                          : "border-red-300 bg-red-50"
+                      )}>
+                        <div className="flex items-center gap-2 mb-2">
+                          {activity.metadata?.approved ? (
+                            <>
+                              <CheckCircle className="h-5 w-5 text-green-700" />
+                              <span className="font-semibold text-green-800">
+                                {t("tickets.closureApproved")}
+                              </span>
+                              <Badge variant="outline" className="bg-green-100 text-green-800 border-green-400">
+                                {t("tickets.approved")}
+                              </Badge>
+                            </>
+                          ) : (
+                            <>
+                              <AlertCircle className="h-5 w-5 text-red-700" />
+                              <span className="font-semibold text-red-800">
+                                {t("tickets.closureRejected")}
+                              </span>
+                              <Badge variant="outline" className="bg-red-100 text-red-800 border-red-400">
+                                {t("tickets.rejected")}
+                              </Badge>
+                            </>
+                          )}
+                        </div>
+                        {activity.content && activity.content.trim() !== '' && (
+                          <div className="mt-2 p-3 bg-white rounded border text-sm">
+                            <span className="font-medium">{t("tickets.managerComment")}:</span>
+                            <p className="mt-1 whitespace-pre-wrap text-gray-700">{activity.content}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {!["comment", "status_change", "assignment_change", "priority_change", "ticket_created", "closure_request", "approval_response"].includes(activity.activity_type) && (
                       <p>{activity.content}</p>
                     )}
                   </div>
@@ -414,6 +524,16 @@ export default function TicketActivitiesClient({
           })}
         </CardContent>
       </Card>
+
+      {/* Approval Dialog */}
+      {selectedClosureRequest && (
+        <ApprovalDialog
+          open={showApprovalDialog}
+          onOpenChange={setShowApprovalDialog}
+          ticket={selectedClosureRequest}
+          onComplete={handleApprovalComplete}
+        />
+      )}
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>

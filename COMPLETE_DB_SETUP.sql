@@ -92,7 +92,9 @@ CREATE TABLE public.ticket_activities (
     'comment',
     'file_attachment',
     'priority_change',
-    'due_date_change'
+    'due_date_change',
+    'closure_request',
+    'approval_response'
   )),
   content TEXT,
   old_value TEXT,
@@ -217,15 +219,18 @@ CREATE POLICY "Managers can update tickets in their department" ON public.audit_
     )
   );
 
--- Employees can only update their own created tickets
-CREATE POLICY "Employees can update their own tickets" ON public.audit_tickets
+-- Employees can update tickets in their department or General department
+CREATE POLICY "Employees can update tickets in their department" ON public.audit_tickets
   FOR UPDATE
   USING (
-    auth.uid() = created_by
-    AND EXISTS (
+    EXISTS (
       SELECT 1 FROM public.profiles
       WHERE profiles.id = auth.uid()
       AND profiles.role = 'emp'
+      AND (
+        audit_tickets.department = profiles.department
+        OR audit_tickets.department = 'General'
+      )
     )
   );
 
@@ -646,12 +651,16 @@ BEGIN
       updated_at = NOW()
     WHERE id = p_ticket_id;
 
-    -- Log activity
+    -- Log activity as closure_request
     INSERT INTO public.ticket_activities (
-      ticket_id, user_id, activity_type, content
+      ticket_id, user_id, activity_type, content, metadata
     ) VALUES (
-      p_ticket_id, v_user_id, 'comment',
-      'Closure requested. Awaiting manager approval. Reason: ' || p_closing_comment
+      p_ticket_id, v_user_id, 'closure_request',
+      p_closing_comment,
+      jsonb_build_object(
+        'approval_status', 'pending',
+        'requires_manager_approval', true
+      )
     );
 
     RETURN jsonb_build_object('success', true, 'message', 'Closure request submitted for manager approval');
@@ -721,12 +730,27 @@ BEGIN
       updated_at = NOW()
     WHERE id = p_ticket_id;
 
-    -- Log activity
+    -- Log approval response activity
     INSERT INTO public.ticket_activities (
-      ticket_id, user_id, activity_type, content, new_value
+      ticket_id, user_id, activity_type, content, metadata
+    ) VALUES (
+      p_ticket_id, v_user_id, 'approval_response',
+      p_approval_comment,
+      jsonb_build_object(
+        'approved', true,
+        'approval_status', 'approved',
+        'action', 'approved'
+      )
+    );
+
+    -- Log status change activity
+    INSERT INTO public.ticket_activities (
+      ticket_id, user_id, activity_type, content, old_value, new_value
     ) VALUES (
       p_ticket_id, v_user_id, 'status_change',
-      'Closure approved by manager. Comment: ' || p_approval_comment, 'closed'
+      'Ticket closed - closure approved by manager',
+      v_ticket.status,
+      'closed'
     );
 
     RETURN jsonb_build_object('success', true, 'message', 'Ticket closure approved');
@@ -742,12 +766,17 @@ BEGIN
       updated_at = NOW()
     WHERE id = p_ticket_id;
 
-    -- Log activity
+    -- Log rejection activity
     INSERT INTO public.ticket_activities (
-      ticket_id, user_id, activity_type, content
+      ticket_id, user_id, activity_type, content, metadata
     ) VALUES (
-      p_ticket_id, v_user_id, 'comment',
-      'Closure request rejected by manager. Reason: ' || p_approval_comment
+      p_ticket_id, v_user_id, 'approval_response',
+      p_approval_comment,
+      jsonb_build_object(
+        'approved', false,
+        'approval_status', 'rejected',
+        'action', 'rejected'
+      )
     );
 
     RETURN jsonb_build_object('success', true, 'message', 'Ticket closure rejected');

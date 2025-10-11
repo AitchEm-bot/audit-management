@@ -124,10 +124,15 @@ export function TicketDetailClient({ ticket, commentCount: initialCommentCount =
     return false
   }
 
-  // All authenticated users can change status
-  // (Employees changing to 'closed' will trigger approval workflow)
+  // Users can change status if ticket is in their department or General department
+  // Note: When employees try to set status to 'closed', it opens the CloseTicketDialog instead
   const canChangeStatus = () => {
-    return true
+    if (hasRole(['admin', 'exec'])) return true
+    // Managers, employees can change status for tickets in their department or General
+    if (profile?.department) {
+      return ticket.department === profile.department || ticket.department === 'General'
+    }
+    return false
   }
 
   // Get success/error messages from URL
@@ -278,7 +283,11 @@ export function TicketDetailClient({ ticket, commentCount: initialCommentCount =
             style={locale === 'ar' ? { transform: 'scaleX(1)' } : undefined}
           />
           <AlertDescription className="text-green-800">
-            {successMessage.includes('Comment added') ? t('tickets.commentAdded') : successMessage}
+            {successMessage.includes('Comment added')
+              ? t('tickets.commentAdded')
+              : successMessage === 'closureRequested'
+              ? t('tickets.closureRequested')
+              : successMessage}
           </AlertDescription>
         </Alert>
       )}
@@ -542,6 +551,28 @@ export function TicketDetailClient({ ticket, commentCount: initialCommentCount =
               </div>
             </CardContent>
           </Card>
+
+          {/* Request Closure Button (for employees only) */}
+          {!canChangeStatus() && ticket.status !== 'closed' && ticket.approval_status !== 'pending' && (
+            <Card>
+              <CardHeader>
+                <CardTitle>{t("tickets.closeTicket")}</CardTitle>
+                <CardDescription>
+                  {t("tickets.requestClosureDescription")}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  onClick={() => setShowCloseDialog(true)}
+                  className="w-full"
+                  variant="default"
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  {t("tickets.requestClosure")}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>
