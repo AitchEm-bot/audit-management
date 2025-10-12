@@ -37,6 +37,17 @@ export function PendingApprovalsCard({ userRole, userDepartment }: PendingApprov
   const [selectedTicket, setSelectedTicket] = useState<PendingApproval | null>(null)
   const [showApprovalDialog, setShowApprovalDialog] = useState(false)
 
+  // Log component state for debugging
+  useEffect(() => {
+    console.log('📋 [PendingApprovals] Component state:', {
+      userRole,
+      userDepartment,
+      loading,
+      approvalsCount: approvals.length,
+      timestamp: new Date().toISOString()
+    })
+  }, [userRole, userDepartment, loading, approvals.length])
+
   useEffect(() => {
     // Only fetch if user is a manager
     if (userRole !== 'manager') {
@@ -70,34 +81,34 @@ export function PendingApprovalsCard({ userRole, userDepartment }: PendingApprov
     }
   }, [userRole, userDepartment])
 
-  // Only show for managers
-  if (userRole !== 'manager') {
+  // Only show for managers, but wait for role to load first
+  if (userRole && userRole !== 'manager') {
+    console.log('📋 [PendingApprovals] Not showing: user is not a manager', { userRole })
     return null
   }
+
+  // Don't show anything if role hasn't loaded yet
+  if (!userRole && !loading) {
+    console.log('📋 [PendingApprovals] Not showing: no userRole and not loading', { userRole, loading })
+    return null
+  }
+
+  console.log('📋 [PendingApprovals] Rendering component', {
+    userRole,
+    loading,
+    approvalsLength: approvals.length,
+    willShowCard: approvals.length > 0 || loading
+  })
 
   const fetchPendingApprovals = async () => {
     setLoading(true)
     try {
       const supabase = createClient()
 
-      // Fetch pending approvals for manager's department
+      // Use the pending_approvals view which already has the LEFT JOIN to profiles
       let query = supabase
-        .from('audit_tickets')
-        .select(`
-          id,
-          ticket_number,
-          title,
-          department,
-          resolution_comment,
-          created_by,
-          created_at,
-          profiles!audit_tickets_created_by_fkey (
-            full_name,
-            email
-          )
-        `)
-        .eq('requires_manager_approval', true)
-        .eq('approval_status', 'pending')
+        .from('pending_approvals')
+        .select('*')
 
       // Filter by department (manager's department + General)
       if (userDepartment) {
@@ -106,25 +117,14 @@ export function PendingApprovalsCard({ userRole, userDepartment }: PendingApprov
 
       query = query.order('created_at', { ascending: false })
 
-      const { data, error } = await query
+      const { data, error} = await query
 
       if (error) {
         console.error('Error fetching pending approvals:', error)
         setApprovals([])
       } else {
-        const formattedData = data?.map((item: any) => ({
-          id: item.id,
-          ticket_number: item.ticket_number,
-          title: item.title,
-          department: item.department,
-          resolution_comment: item.resolution_comment || '',
-          created_by: item.created_by,
-          created_at: item.created_at,
-          requester_name: item.profiles?.full_name || 'Unknown',
-          requester_email: item.profiles?.email || ''
-        })) || []
-
-        setApprovals(formattedData)
+        // The view already returns the data in the correct format
+        setApprovals(data || [])
       }
     } catch (error) {
       console.error('Error fetching pending approvals:', error)
@@ -146,6 +146,7 @@ export function PendingApprovalsCard({ userRole, userDepartment }: PendingApprov
   }
 
   if (loading) {
+    console.log('📋 [PendingApprovals] Showing loading state')
     return (
       <Card className="border-blue-200 bg-blue-50">
         <CardHeader>
@@ -162,8 +163,11 @@ export function PendingApprovalsCard({ userRole, userDepartment }: PendingApprov
   }
 
   if (approvals.length === 0) {
+    console.log('📋 [PendingApprovals] No approvals, hiding component')
     return null
   }
+
+  console.log('📋 [PendingApprovals] Showing approvals card with', approvals.length, 'approvals')
 
   return (
     <>

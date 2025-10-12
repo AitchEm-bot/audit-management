@@ -113,26 +113,47 @@ export function TicketDetailClient({ ticket, commentCount: initialCommentCount =
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Get auth context for role-based permissions
-  const { hasRole, profile, user } = useAuth()
+  const { hasRole, profile, user, loading: authLoading } = useAuth()
+
+  // Log auth state for debugging
+  useEffect(() => {
+    console.log('🔐 [TicketDetail] Auth state:', {
+      authLoading,
+      hasProfile: !!profile,
+      userRole: profile?.role,
+      userDepartment: profile?.department,
+      ticketDepartment: ticket.department,
+      ticketStatus: ticket.status,
+      ticketApprovalStatus: ticket.approval_status
+    })
+  }, [authLoading, profile, ticket.status, ticket.approval_status])
 
   // Check if user can edit this ticket
   const canEditTicket = () => {
-    if (hasRole(['admin', 'exec'])) return true
-    if (hasRole('manager') && profile?.department) {
-      return ticket.department === profile.department || ticket.department === 'General'
-    }
-    return false
+    const result = (() => {
+      if (hasRole(['admin', 'exec'])) return true
+      if (hasRole('manager') && profile?.department) {
+        return ticket.department === profile.department || ticket.department === 'General'
+      }
+      return false
+    })()
+    console.log('🔧 [TicketDetail] canEditTicket:', result, { authLoading, role: profile?.role })
+    return result
   }
 
   // Users can change status if ticket is in their department or General department
   // Note: When employees try to set status to 'closed', it opens the CloseTicketDialog instead
   const canChangeStatus = () => {
-    if (hasRole(['admin', 'exec'])) return true
-    // Managers, employees can change status for tickets in their department or General
-    if (profile?.department) {
-      return ticket.department === profile.department || ticket.department === 'General'
-    }
-    return false
+    const result = (() => {
+      if (hasRole(['admin', 'exec'])) return true
+      // Managers, employees can change status for tickets in their department or General
+      if (profile?.department) {
+        return ticket.department === profile.department || ticket.department === 'General'
+      }
+      return false
+    })()
+    console.log('🎛️ [TicketDetail] canChangeStatus:', result, { authLoading, role: profile?.role, dept: profile?.department })
+    return result
   }
 
   // Get success/error messages from URL
@@ -265,7 +286,7 @@ export function TicketDetailClient({ ticket, commentCount: initialCommentCount =
           <h1 className="text-2xl font-bold">{ticket.title}</h1>
           <p className="text-muted-foreground font-mono">{ticket.ticket_number}</p>
         </div>
-        {canEditTicket() && (
+        {!authLoading && canEditTicket() && (
           <Button variant="outline" asChild>
             <Link href={`/tickets/${ticket.id}/edit`}>
               <Edit className="h-4 w-4 mr-2" />
@@ -553,26 +574,42 @@ export function TicketDetailClient({ ticket, commentCount: initialCommentCount =
           </Card>
 
           {/* Request Closure Button (for employees only) */}
-          {!canChangeStatus() && ticket.status !== 'closed' && ticket.approval_status !== 'pending' && (
-            <Card>
-              <CardHeader>
-                <CardTitle>{t("tickets.closeTicket")}</CardTitle>
-                <CardDescription>
-                  {t("tickets.requestClosureDescription")}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button
-                  onClick={() => setShowCloseDialog(true)}
-                  className="w-full"
-                  variant="default"
-                >
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  {t("tickets.requestClosure")}
-                </Button>
-              </CardContent>
-            </Card>
-          )}
+          {(() => {
+            const shouldShow = !authLoading && !canChangeStatus() && ticket.status !== 'closed' && ticket.approval_status !== 'pending'
+            console.log('🔘 [TicketDetail] Request Closure Button:', {
+              shouldShow,
+              authLoading,
+              canChangeStatus: canChangeStatus(),
+              ticketStatus: ticket.status,
+              approvalStatus: ticket.approval_status,
+              conditions: {
+                notAuthLoading: !authLoading,
+                cannotChangeStatus: !canChangeStatus(),
+                notClosed: ticket.status !== 'closed',
+                notPendingApproval: ticket.approval_status !== 'pending'
+              }
+            })
+            return shouldShow ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>{t("tickets.closeTicket")}</CardTitle>
+                  <CardDescription>
+                    {t("tickets.requestClosureDescription")}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    onClick={() => setShowCloseDialog(true)}
+                    className="w-full"
+                    variant="default"
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    {t("tickets.requestClosure")}
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : null
+          })()}
         </div>
       </div>
     </div>
