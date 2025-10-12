@@ -643,8 +643,10 @@ BEGIN
     RETURN jsonb_build_object('success', true, 'message', 'Ticket closed successfully');
   ELSE
     -- Employee needs manager approval
+    -- Set ticket status to 'pending' to indicate it's awaiting approval
     UPDATE public.audit_tickets
     SET
+      status = 'pending',
       requires_manager_approval = true,
       approval_status = 'pending',
       resolution_comment = p_closing_comment,

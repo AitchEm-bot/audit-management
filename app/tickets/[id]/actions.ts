@@ -143,24 +143,30 @@ export async function addComment(ticketId: string, formData: FormData) {
   console.log('Comment added successfully:', activity.id)
 
   // Automatically change status from 'open' to 'in_progress' when user comments
-  // Only if user has permission to update the ticket
+  // This happens for any employee who adds a comment to an open ticket
   try {
     const { data: currentTicket } = await supabase
       .from('audit_tickets')
-      .select('status, created_by')
+      .select('status, department, created_by')
       .eq('id', ticketId)
       .single()
 
     if (currentTicket?.status === 'open') {
-      // Check if user can update this ticket (either created it or has manager+ role)
+      // Get user profile to check role and department
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role')
+        .select('role, department')
         .eq('id', user.id)
         .single()
 
+      // Allow status change if user is:
+      // 1. Ticket creator
+      // 2. Manager, exec, or admin
+      // 3. Employee in the same department or General department
       const canUpdateTicket = currentTicket.created_by === user.id ||
-                               (profile && ['manager', 'exec', 'admin'].includes(profile.role))
+                               (profile && ['manager', 'exec', 'admin'].includes(profile.role)) ||
+                               (profile && profile.role === 'emp' &&
+                                (currentTicket.department === profile.department || currentTicket.department === 'General'))
 
       if (canUpdateTicket) {
         const { error: statusError } = await supabase
