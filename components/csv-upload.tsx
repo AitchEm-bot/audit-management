@@ -171,7 +171,7 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
 
     // Map status fields
     const rawStatus = (getFieldValue('status', ['status', 'finding_status']) || "open").toString().toLowerCase()
-    const status = ["open", "in_progress", "resolved", "closed"].includes(rawStatus)
+    const status = ["open", "in_progress", "pending", "closed"].includes(rawStatus)
       ? rawStatus
       : "open"
 
@@ -198,7 +198,7 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
       description,
       department,
       priority: priority as "low" | "medium" | "high" | "critical",
-      status: status as "open" | "in_progress" | "resolved" | "closed",
+      status: status as "open" | "in_progress" | "pending" | "closed",
       due_date: formatDueDate(dueDate),
 
       // Additional audit-specific fields

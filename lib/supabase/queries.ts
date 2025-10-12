@@ -101,8 +101,8 @@ export class SupabaseQueries {
 
     // Apply filters
     if (filters.status === "active") {
-      // Special filter to exclude closed and resolved tickets
-      query = query.not("status", "in", "(closed,resolved)")
+      // Special filter to exclude closed and pending tickets
+      query = query.not("status", "in", "(closed,pending)")
     } else if (filters.status) {
       const statuses = Array.isArray(filters.status) ? filters.status : [filters.status]
       query = query.in("status", statuses)
@@ -286,7 +286,7 @@ export class SupabaseQueries {
         total: tickets?.length || 0,
         open: 0,
         in_progress: 0,
-        resolved: 0,
+        pending: 0,
         closed: 0,
         critical: 0,
         high: 0,
@@ -304,8 +304,8 @@ export class SupabaseQueries {
           stats.open++
         } else if (status === "in_progress" || status === "in progress" || status === "inprogress") {
           stats.in_progress++
-        } else if (status === "resolved") {
-          stats.resolved++
+        } else if (status === "pending") {
+          stats.pending++
         } else if (status === "closed") {
           stats.closed++
         }
@@ -331,7 +331,7 @@ export class SupabaseQueries {
         if (
           ticket.due_date &&
           new Date(ticket.due_date) < now &&
-          status !== "resolved" &&
+          status !== "pending" &&
           status !== "closed"
         ) {
           stats.overdue++
@@ -352,7 +352,7 @@ export class SupabaseQueries {
           total: 0,
           open: 0,
           in_progress: 0,
-          resolved: 0,
+          pending: 0,
           closed: 0,
           critical: 0,
           high: 0,
@@ -540,7 +540,7 @@ export class SupabaseQueries {
             total_tickets: 0,
             open_tickets: 0,
             in_progress_tickets: 0,
-            resolved_tickets: 0,
+            pending_tickets: 0,
             closed_tickets: 0,
             critical_tickets: 0,
             high_tickets: 0,
@@ -554,7 +554,7 @@ export class SupabaseQueries {
         stats[`${ticket.status}_tickets`] = (stats[`${ticket.status}_tickets`] || 0) + 1
         stats[`${ticket.priority}_tickets`] = (stats[`${ticket.priority}_tickets`] || 0) + 1
 
-        if (ticket.due_date && new Date(ticket.due_date) < now && !['resolved', 'closed'].includes(ticket.status)) {
+        if (ticket.due_date && new Date(ticket.due_date) < now && !['pending', 'closed'].includes(ticket.status)) {
           stats.overdue_tickets++
         }
       })

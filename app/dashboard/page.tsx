@@ -51,7 +51,7 @@ export default async function DashboardPage() {
 
       stats = {
         total: count || 0,
-        open: 0, in_progress: 0, resolved: 0, closed: 0,
+        open: 0, in_progress: 0, pending: 0, closed: 0,
         critical: 0, high: 0, medium: 0, low: 0,
         overdue: 0, recent_7_days: 0, departments: {}
       }
@@ -62,7 +62,7 @@ export default async function DashboardPage() {
 
       stats = {
         total: tickets?.length || 0,
-        open: 0, in_progress: 0, resolved: 0, closed: 0,
+        open: 0, in_progress: 0, pending: 0, closed: 0,
         critical: 0, high: 0, medium: 0, low: 0,
         overdue: 0, recent_7_days: 0, departments: {}
       }
@@ -72,7 +72,7 @@ export default async function DashboardPage() {
         const status = ticket.status?.toLowerCase()
         if (status === "open") stats.open++
         else if (status === "in_progress") stats.in_progress++
-        else if (status === "resolved") stats.resolved++
+        else if (status === "pending") stats.pending++
         else if (status === "closed") stats.closed++
 
         // Priority counts
@@ -89,7 +89,7 @@ export default async function DashboardPage() {
 
         // Overdue and recent tickets
         if (ticket.due_date && new Date(ticket.due_date) < now &&
-            status !== "resolved" && status !== "closed") {
+            status !== "pending" && status !== "closed") {
           stats.overdue++
         }
         if (new Date(ticket.created_at) > sevenDaysAgo) {
@@ -106,7 +106,7 @@ export default async function DashboardPage() {
       total: 0,
       open: 0,
       in_progress: 0,
-      resolved: 0,
+      pending: 0,
       closed: 0,
       critical: 0,
       high: 0,

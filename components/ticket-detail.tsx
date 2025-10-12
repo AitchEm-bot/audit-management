@@ -91,7 +91,7 @@ const priorityColors = {
 const statusColors = {
   open: "bg-blue-100 text-blue-800",
   in_progress: "bg-purple-100 text-purple-800",
-  resolved: "bg-green-100 text-green-800",
+  pending: "bg-green-100 text-green-800",
   closed: "bg-gray-100 text-gray-800",
 }
 
@@ -490,7 +490,7 @@ export function TicketDetail({ ticketId }: TicketDetailProps) {
                 <SelectContent>
                   <SelectItem value="open">Open</SelectItem>
                   <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="resolved">Resolved</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="closed">Closed</SelectItem>
                 </SelectContent>
               </Select>

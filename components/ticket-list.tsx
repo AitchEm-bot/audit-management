@@ -51,7 +51,7 @@ const priorityColors = {
 const statusColors = {
   open: "bg-blue-100 text-blue-800",
   in_progress: "bg-purple-100 text-purple-800",
-  resolved: "bg-green-100 text-green-800",
+  pending: "bg-green-100 text-green-800",
   closed: "bg-gray-100 text-gray-800",
 }
 

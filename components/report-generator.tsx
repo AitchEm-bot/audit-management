@@ -312,7 +312,7 @@ export function ReportGenerator() {
                 <div>
                   <Label className="text-sm font-medium">{t("reports.statusFilter")}</Label>
                   <div className="grid grid-cols-2 gap-2 mt-2">
-                    {["open", "in_progress", "resolved", "closed"].map((status) => {
+                    {["open", "in_progress", "pending", "closed"].map((status) => {
                       const statusKey = status === "in_progress" ? "statusInProgress" : `status${status.charAt(0).toUpperCase() + status.slice(1)}`
                       return (
                         <div key={status} className={`flex items-center gap-2`}>

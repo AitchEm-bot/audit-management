@@ -6,7 +6,7 @@ A comprehensive audit management platform built with Next.js, TypeScript, and Su
 
 ### 📋 Ticket Management
 - Create, view, update, and delete audit tickets
-- Track ticket status (open, in progress, resolved, closed)
+- Track ticket status (open, in progress, pending, closed)
 - Priority management (low, medium, high, critical)
 - Department assignment and filtering
 - Due date tracking with overdue alerts
@@ -131,7 +131,7 @@ The system supports governmental audit report formats with these columns:
 - Title/Description
 - Department
 - Priority (low/medium/high/critical)
-- Status (open/in_progress/resolved/closed)
+- Status (open/in_progress/pending/closed)
 - Due Date
 
 **Audit-Specific Fields:**

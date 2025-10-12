@@ -43,7 +43,7 @@ CREATE TABLE public.audit_tickets (
   description TEXT,
   department TEXT,
   priority VARCHAR(20) DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'critical')),
-  status VARCHAR(20) DEFAULT 'open' CHECK (status IN ('open', 'in_progress', 'resolved', 'closed')),
+  status VARCHAR(20) DEFAULT 'open' CHECK (status IN ('open', 'in_progress', 'pending', 'closed')),
 
   -- Additional audit-specific fields
   recommendations TEXT,
@@ -1074,7 +1074,7 @@ SELECT
   COUNT(*) as total_tickets,
   COUNT(CASE WHEN status = 'open' THEN 1 END) as open_tickets,
   COUNT(CASE WHEN status = 'in_progress' THEN 1 END) as in_progress_tickets,
-  COUNT(CASE WHEN status = 'resolved' THEN 1 END) as resolved_tickets,
+  COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_tickets,
   COUNT(CASE WHEN status = 'closed' THEN 1 END) as closed_tickets,
   COUNT(CASE WHEN priority = 'critical' THEN 1 END) as critical_tickets,
   COUNT(CASE WHEN priority = 'high' THEN 1 END) as high_priority_tickets

@@ -4,7 +4,7 @@ export function translateStatus(status: string, t: (key: string) => string): str
   const statusMap: Record<string, string> = {
     open: t("tickets.statusOpen"),
     in_progress: t("tickets.statusInProgress"),
-    resolved: t("tickets.statusResolved"),
+    pending: t("tickets.statusPending"),
     closed: t("tickets.statusClosed"),
     active: t("tickets.statusActive"),
   }

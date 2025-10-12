@@ -17,7 +17,7 @@ interface TicketStats {
   total: number
   open: number
   in_progress: number
-  resolved: number
+  pending: number
   closed: number
   critical: number
   high: number
@@ -46,7 +46,7 @@ const PRIORITY_COLORS = {
 const STATUS_COLORS = {
   open: "#3b82f6",
   in_progress: "#8b5cf6",
-  resolved: "#22c55e",
+  pending: "#22c55e",
   closed: "#6b7280",
 }
 
@@ -64,7 +64,7 @@ export function DashboardMetrics({ initialStats, userRole }: DashboardMetricsPro
       total: 0,
       open: 0,
       in_progress: 0,
-      resolved: 0,
+      pending: 0,
       closed: 0,
       critical: 0,
       high: 0,
@@ -94,7 +94,7 @@ export function DashboardMetrics({ initialStats, userRole }: DashboardMetricsPro
     console.log("DashboardMetrics: Initial stats provided:", initialStats)
 
     if (initialStats && initialStats.total > 0 &&
-        (initialStats.open + initialStats.in_progress + initialStats.resolved + initialStats.closed) > 0) {
+        (initialStats.open + initialStats.in_progress + initialStats.pending + initialStats.closed) > 0) {
       // Server-side stats look complete, use them
       console.log("Using complete server-side stats")
       setStats({
@@ -121,7 +121,7 @@ export function DashboardMetrics({ initialStats, userRole }: DashboardMetricsPro
           total: 0,
           open: 0,
           in_progress: 0,
-          resolved: 0,
+          pending: 0,
           closed: 0,
           critical: 0,
           high: 0,
@@ -147,7 +147,7 @@ export function DashboardMetrics({ initialStats, userRole }: DashboardMetricsPro
           total: 0,
           open: 0,
           in_progress: 0,
-          resolved: 0,
+          pending: 0,
           closed: 0,
           critical: 0,
           high: 0,
@@ -171,7 +171,7 @@ export function DashboardMetrics({ initialStats, userRole }: DashboardMetricsPro
         total: 0,
         open: 0,
         in_progress: 0,
-        resolved: 0,
+        pending: 0,
         closed: 0,
         critical: 0,
         high: 0,
@@ -208,7 +208,7 @@ export function DashboardMetrics({ initialStats, userRole }: DashboardMetricsPro
   const statusData: ChartData[] = [
     { name: t("dashboard.openTickets"), value: stats.open, color: STATUS_COLORS.open },
     { name: t("dashboard.inProgress"), value: stats.in_progress, color: STATUS_COLORS.in_progress },
-    { name: t("dashboard.resolved"), value: stats.resolved, color: STATUS_COLORS.resolved },
+    { name: t("dashboard.pending"), value: stats.pending, color: STATUS_COLORS.pending },
     { name: t("dashboard.closed"), value: stats.closed, color: STATUS_COLORS.closed },
   ]
 
@@ -280,7 +280,7 @@ export function DashboardMetrics({ initialStats, userRole }: DashboardMetricsPro
     )
   }
 
-  const completionRate = stats.total > 0 ? ((stats.resolved + stats.closed) / stats.total) * 100 : 0
+  const completionRate = stats.total > 0 ? ((stats.pending + stats.closed) / stats.total) * 100 : 0
 
   if (loading) {
     return (
@@ -359,7 +359,7 @@ export function DashboardMetrics({ initialStats, userRole }: DashboardMetricsPro
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">{completionRate.toFixed(1)}%</div>
-            <p className="text-xs text-muted-foreground">{t("common.resolvedPlusClosed")}</p>
+            <p className="text-xs text-muted-foreground">{t("common.pendingPlusClosed")}</p>
           </CardContent>
         </Card>
       </div>
@@ -425,7 +425,7 @@ export function DashboardMetrics({ initialStats, userRole }: DashboardMetricsPro
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-green-500"></div>
-              <span>{t("dashboard.resolved")}: {stats.resolved}</span>
+              <span>{t("dashboard.pending")}: {stats.pending}</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-gray-500"></div>

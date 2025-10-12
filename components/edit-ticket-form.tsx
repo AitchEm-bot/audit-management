@@ -324,7 +324,7 @@ export function EditTicketForm({
                 <SelectContent>
                   <SelectItem value="open">{t("tickets.statusOpen")}</SelectItem>
                   <SelectItem value="in_progress">{t("tickets.statusInProgress")}</SelectItem>
-                  <SelectItem value="resolved">{t("tickets.statusResolved")}</SelectItem>
+                  <SelectItem value="pending">{t("tickets.statusPending")}</SelectItem>
                   <SelectItem value="closed">{t("tickets.statusClosed")}</SelectItem>
                 </SelectContent>
               </Select>
