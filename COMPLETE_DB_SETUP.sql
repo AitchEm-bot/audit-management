@@ -719,6 +719,11 @@ BEGIN
     RETURN jsonb_build_object('error', 'Unauthorized - Can only approve tickets in your department');
   END IF;
 
+  -- Check if already processed (approved or rejected)
+  IF v_ticket.approval_status IN ('approved', 'rejected') THEN
+    RETURN jsonb_build_object('error', 'This closure request has already been ' || v_ticket.approval_status);
+  END IF;
+
   IF p_approved THEN
     -- Approve and close ticket
     UPDATE public.audit_tickets
@@ -732,7 +737,25 @@ BEGIN
       updated_at = NOW()
     WHERE id = p_ticket_id;
 
-    -- Log approval response activity
+    -- Update the closure_request activity to mark it as approved
+    UPDATE public.ticket_activities
+    SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
+      'processed', true,
+      'processed_by', v_user_id,
+      'processed_at', NOW(),
+      'approved', true
+    )
+    WHERE id = (
+      SELECT id
+      FROM public.ticket_activities
+      WHERE ticket_id = p_ticket_id
+        AND activity_type = 'closure_request'
+        AND metadata->>'approval_status' = 'pending'
+      ORDER BY created_at DESC
+      LIMIT 1
+    );
+
+    -- Log approval response activity (status change is logged by trigger)
     INSERT INTO public.ticket_activities (
       ticket_id, user_id, activity_type, content, metadata
     ) VALUES (
@@ -745,21 +768,12 @@ BEGIN
       )
     );
 
-    -- Log status change activity
-    INSERT INTO public.ticket_activities (
-      ticket_id, user_id, activity_type, content, old_value, new_value
-    ) VALUES (
-      p_ticket_id, v_user_id, 'status_change',
-      'Ticket closed - closure approved by manager',
-      v_ticket.status,
-      'closed'
-    );
-
     RETURN jsonb_build_object('success', true, 'message', 'Ticket closure approved');
   ELSE
-    -- Reject closure request
+    -- Reject closure request - return ticket to in_progress status
     UPDATE public.audit_tickets
     SET
+      status = 'in_progress',
       approval_status = 'rejected',
       manager_approved_by = v_user_id,
       manager_approved_at = NOW(),
@@ -768,7 +782,25 @@ BEGIN
       updated_at = NOW()
     WHERE id = p_ticket_id;
 
-    -- Log rejection activity
+    -- Update the closure_request activity to mark it as rejected
+    UPDATE public.ticket_activities
+    SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
+      'processed', true,
+      'processed_by', v_user_id,
+      'processed_at', NOW(),
+      'approved', false
+    )
+    WHERE id = (
+      SELECT id
+      FROM public.ticket_activities
+      WHERE ticket_id = p_ticket_id
+        AND activity_type = 'closure_request'
+        AND metadata->>'approval_status' = 'pending'
+      ORDER BY created_at DESC
+      LIMIT 1
+    );
+
+    -- Log rejection activity (status change is logged by trigger)
     INSERT INTO public.ticket_activities (
       ticket_id, user_id, activity_type, content, metadata
     ) VALUES (
@@ -877,6 +909,7 @@ SELECT
   t.resolution_comment,
   t.created_by,
   t.created_at,
+  t.approval_status,
   p.full_name as requester_name,
   p.email as requester_email
 FROM public.audit_tickets t

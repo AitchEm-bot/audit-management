@@ -306,7 +306,10 @@
     "reviewRequest": "Review Request",
     "approved": "Approved",
     "rejected": "Rejected",
-    "managerComment": "Manager's Comment"
+    "managerComment": "Manager's Comment",
+    "alreadyProcessed": "This closure request has already been processed",
+    "requestProcessedApproved": "Request Approved",
+    "requestProcessedRejected": "Request Rejected"
   },
   "upload": {
     "title": "Upload Audit Data",

@@ -20,6 +20,7 @@ interface PendingApproval {
   resolution_comment: string
   created_by: string
   created_at: string
+  approval_status: string | null
   requester_name: string
   requester_email: string
 }

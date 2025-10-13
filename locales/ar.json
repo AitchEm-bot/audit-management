@@ -306,7 +306,10 @@
     "reviewRequest": "طلب المراجعة",
     "approved": "تمت الموافقة",
     "rejected": "مرفوض",
-    "managerComment": "تعليق المدير"
+    "managerComment": "تعليق المدير",
+    "alreadyProcessed": "تمت معالجة طلب الإغلاق بالفعل",
+    "requestProcessedApproved": "تمت الموافقة على الطلب",
+    "requestProcessedRejected": "تم رفض الطلب"
   },
   "upload": {
     "title": "رفع بيانات التدقيق",

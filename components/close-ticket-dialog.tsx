@@ -33,7 +33,7 @@ export function CloseTicketDialog({
   commentCount: initialCommentCount,
 }: CloseTicketDialogProps) {
   const router = useRouter()
-  const { hasRole } = useAuth()
+  const { hasRole, profile } = useAuth()
   const [closingComment, setClosingComment] = useState("")
   const [isGenerating, setIsGenerating] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -43,6 +43,18 @@ export function CloseTicketDialog({
 
   // Check if user is an employee (needs approval)
   const isEmployee = hasRole('emp')
+
+  // Log role detection
+  useEffect(() => {
+    console.log('🎭 [CloseDialog] Role check:', {
+      isEmployee,
+      profileRole: profile?.role,
+      hasRoleEmp: hasRole('emp'),
+      hasRoleManager: hasRole('manager'),
+      hasRoleAdmin: hasRole('admin'),
+      hasRoleExec: hasRole('exec')
+    })
+  }, [isEmployee, profile, hasRole])
 
   // Fetch actual comment count when dialog opens
   useEffect(() => {
@@ -152,47 +164,63 @@ export function CloseTicketDialog({
     setIsSaving(true)
     setError(null)
 
+    console.log('🚀 [CloseDialog] Starting closure process:', {
+      isEmployee,
+      ticketId,
+      commentLength: closingComment.trim().length
+    })
+
     try {
       // Employees must request closure, managers/admins/execs can close directly
       if (isEmployee) {
+        console.log('👤 [CloseDialog] Employee detected - requesting manager approval')
         const supabase = createClient()
         const { data, error: rpcError } = await supabase.rpc('request_ticket_closure', {
           p_ticket_id: ticketId,
           p_closing_comment: closingComment.trim()
         })
 
+        console.log('📞 [CloseDialog] RPC call result:', { data, rpcError })
+
         if (rpcError) {
-          console.error('Error requesting closure:', rpcError)
+          console.error('❌ [CloseDialog] Error requesting closure:', rpcError)
           setError(rpcError.message || 'Failed to request closure')
           setIsSaving(false)
           return
         }
 
         if (data?.error) {
+          console.error('❌ [CloseDialog] Function returned error:', data.error)
           setError(data.error)
           setIsSaving(false)
           return
         }
 
         // Success - show message and refresh
+        console.log('✅ [CloseDialog] Closure request successful')
         onOpenChange(false)
         router.push(`/tickets/${ticketId}?success=closureRequested`)
         router.refresh()
       } else {
         // Managers/Admins/Execs can close directly
+        console.log('👨‍💼 [CloseDialog] Manager/Admin/Exec detected - closing directly')
         const result = await closeTicketWithComment(ticketId, closingComment.trim(), wasAIGenerated)
 
+        console.log('📝 [CloseDialog] Direct close result:', result)
+
         if (result?.error) {
+          console.error('❌ [CloseDialog] Error closing:', result.error)
           setError(result.error)
           setIsSaving(false)
         } else {
           // Success - close dialog and refresh
+          console.log('✅ [CloseDialog] Ticket closed successfully')
           onOpenChange(false)
           router.refresh()
         }
       }
     } catch (err) {
-      console.error('Error closing ticket:', err)
+      console.error('❌ [CloseDialog] Error closing ticket:', err)
       setError('Failed to close ticket. Please try again.')
       setIsSaving(false)
     }

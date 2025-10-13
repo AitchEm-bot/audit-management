@@ -141,13 +141,13 @@ export function TicketDetailClient({ ticket, commentCount: initialCommentCount =
     return result
   }
 
-  // Users can change status if ticket is in their department or General department
-  // Note: When employees try to set status to 'closed', it opens the CloseTicketDialog instead
+  // Only managers, executives, and admins can change status directly
+  // Employees must use the Request Closure button (which triggers manager approval)
   const canChangeStatus = () => {
     const result = (() => {
       if (hasRole(['admin', 'exec'])) return true
-      // Managers, employees can change status for tickets in their department or General
-      if (profile?.department) {
+      // Managers can change status for tickets in their department or General
+      if (hasRole('manager') && profile?.department) {
         return ticket.department === profile.department || ticket.department === 'General'
       }
       return false

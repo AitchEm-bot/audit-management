@@ -27,6 +27,7 @@ interface ApprovalDialogProps {
     title: string
     resolution_comment: string
     requester_name: string
+    approval_status?: string | null
   }
   onComplete?: () => void
 }
@@ -38,6 +39,9 @@ export function ApprovalDialog({ open, onOpenChange, ticket, onComplete }: Appro
   const [comment, setComment] = useState("")
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Check if the request has already been processed
+  const isAlreadyProcessed = ticket.approval_status === 'approved' || ticket.approval_status === 'rejected'
 
   const handleApprove = async () => {
     setProcessing(true)
@@ -173,6 +177,21 @@ export function ApprovalDialog({ open, onOpenChange, ticket, onComplete }: Appro
             </p>
           </div>
 
+          {/* Already Processed Warning */}
+          {isAlreadyProcessed && (
+            <div className="flex items-center gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-800">
+              <AlertCircle className="h-4 w-4" />
+              <div>
+                <p className="font-medium">{t("tickets.alreadyProcessed")}</p>
+                <p className="text-xs mt-1">
+                  {ticket.approval_status === 'approved'
+                    ? t("tickets.requestProcessedApproved")
+                    : t("tickets.requestProcessedRejected")}
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Error Message */}
           {error && (
             <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-800">
@@ -190,39 +209,43 @@ export function ApprovalDialog({ open, onOpenChange, ticket, onComplete }: Appro
           >
             {t("common.cancel")}
           </Button>
-          <Button
-            variant="destructive"
-            onClick={handleReject}
-            disabled={processing}
-          >
-            {processing ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                {t("tickets.rejecting")}
-              </>
-            ) : (
-              <>
-                <XCircle className="h-4 w-4 mr-2" />
-                {t("tickets.rejectClosure")}
-              </>
-            )}
-          </Button>
-          <Button
-            onClick={handleApprove}
-            disabled={processing}
-          >
-            {processing ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                {t("tickets.approving")}
-              </>
-            ) : (
-              <>
-                <CheckCircle className="h-4 w-4 mr-2" />
-                {t("tickets.approveClosure")}
-              </>
-            )}
-          </Button>
+          {!isAlreadyProcessed && (
+            <>
+              <Button
+                variant="destructive"
+                onClick={handleReject}
+                disabled={processing}
+              >
+                {processing ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    {t("tickets.rejecting")}
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="h-4 w-4 mr-2" />
+                    {t("tickets.rejectClosure")}
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={handleApprove}
+                disabled={processing}
+              >
+                {processing ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    {t("tickets.approving")}
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    {t("tickets.approveClosure")}
+                  </>
+                )}
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

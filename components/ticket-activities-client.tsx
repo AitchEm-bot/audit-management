@@ -204,7 +204,7 @@ export default function TicketActivitiesClient({
     const supabase = createClient()
     const { data: ticket } = await supabase
       .from('audit_tickets')
-      .select('ticket_number, title, resolution_comment')
+      .select('ticket_number, title, resolution_comment, approval_status')
       .eq('id', ticketId)
       .single()
 
@@ -214,7 +214,8 @@ export default function TicketActivitiesClient({
         ticket_number: ticket.ticket_number,
         title: ticket.title,
         resolution_comment: activity.content,
-        requester_name: activity.profiles?.full_name || 'Unknown'
+        requester_name: activity.profiles?.full_name || 'Unknown',
+        approval_status: ticket.approval_status
       })
       setShowApprovalDialog(true)
     }
@@ -446,21 +447,53 @@ export default function TicketActivitiesClient({
                     )}
 
                     {activity.activity_type === "closure_request" && (
-                      <div className="p-4 rounded-lg border-2 border-yellow-300 bg-yellow-50">
+                      <div className={cn(
+                        "p-4 rounded-lg border-2",
+                        activity.metadata?.processed && activity.metadata?.approved
+                          ? "border-green-300 bg-green-50"
+                          : activity.metadata?.processed && !activity.metadata?.approved
+                          ? "border-red-300 bg-red-50"
+                          : "border-yellow-300 bg-yellow-50"
+                      )}>
                         <div className="flex items-center gap-2 mb-2">
-                          <AlertCircle className="h-5 w-5 text-yellow-700" />
-                          <span className="font-semibold text-yellow-800">
-                            {t("tickets.closureRequested")}
-                          </span>
-                          <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-400">
-                            {t("tickets.pendingReview")}
-                          </Badge>
+                          {activity.metadata?.processed && activity.metadata?.approved ? (
+                            <>
+                              <CheckCircle className="h-5 w-5 text-green-700" />
+                              <span className="font-semibold text-green-800">
+                                {t("tickets.closureRequested")}
+                              </span>
+                              <Badge variant="outline" className="bg-green-100 text-green-800 border-green-400">
+                                {t("tickets.approved")}
+                              </Badge>
+                            </>
+                          ) : activity.metadata?.processed && !activity.metadata?.approved ? (
+                            <>
+                              <AlertCircle className="h-5 w-5 text-red-700" />
+                              <span className="font-semibold text-red-800">
+                                {t("tickets.closureRequested")}
+                              </span>
+                              <Badge variant="outline" className="bg-red-100 text-red-800 border-red-400">
+                                {t("tickets.rejected")}
+                              </Badge>
+                            </>
+                          ) : (
+                            <>
+                              <AlertCircle className="h-5 w-5 text-yellow-700" />
+                              <span className="font-semibold text-yellow-800">
+                                {t("tickets.closureRequested")}
+                              </span>
+                              <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-400">
+                                {t("tickets.pendingReview")}
+                              </Badge>
+                            </>
+                          )}
                         </div>
                         <div className="mt-2 p-3 bg-white rounded border text-sm">
                           <span className="font-medium">{t("tickets.reason")}:</span>
                           <p className="mt-1 whitespace-pre-wrap text-gray-700">{activity.content}</p>
                         </div>
-                        {hasRole(['manager', 'exec', 'admin']) && !isTicketClosed && activity.metadata?.approval_status === 'pending' && (
+                        {/* Only show Review button if pending and user is a manager */}
+                        {hasRole(['manager', 'exec', 'admin']) && !isTicketClosed && !activity.metadata?.processed && activity.metadata?.approval_status === 'pending' && (
                           <div className="mt-3 flex gap-2">
                             <Button
                               size="sm"
